@@ -10,10 +10,9 @@ import { createPuzzlePanel } from '../ui/PuzzlePanel';
 import { createPyramidMap } from '../ui/PyramidMap';
 import {
   advancePanMomentum,
-  clampCameraScrollX,
-  getHorizontalPanAvailability,
-  isHorizontalSwipe,
-  TAP_SWIPE_THRESHOLD,
+  clampCameraScroll,
+  getPanAvailability,
+  isPanGesture,
 } from '../navigation/cameraPan';
 import type {
   HotspotDefinition,
@@ -46,11 +45,12 @@ interface PointerGesture {
   startX: number;
   startY: number;
   startScrollX: number;
+  startScrollY: number;
   moved: boolean;
   tapAllowed: boolean;
-  horizontal: boolean;
   lastMoveAt: number;
   velocityX: number;
+  velocityY: number;
 }
 
 export class ChamberScene extends Phaser.Scene {
@@ -72,7 +72,9 @@ export class ChamberScene extends Phaser.Scene {
   private roomId = 'entrance';
   private panLeftCue?: Phaser.GameObjects.Text;
   private panRightCue?: Phaser.GameObjects.Text;
-  private panInertiaVelocity = 0;
+  private panUpCue?: Phaser.GameObjects.Text;
+  private panDownCue?: Phaser.GameObjects.Text;
+  private panInertia = { x: 0, y: 0 };
 
   constructor() {
     super('chamber');
@@ -93,17 +95,24 @@ export class ChamberScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    if (!this.pointerGesture && Math.abs(this.panInertiaVelocity) >= 0.015) {
+    if (
+      !this.pointerGesture &&
+      (Math.abs(this.panInertia.x) >= 0.015 ||
+        Math.abs(this.panInertia.y) >= 0.015)
+    ) {
       const next = advancePanMomentum(
         this.cameras.main.scrollX,
-        this.panInertiaVelocity,
+        this.cameras.main.scrollY,
+        this.panInertia.x,
+        this.panInertia.y,
         delta,
         this.room.worldBounds,
         this.cameras.main.width,
+        this.cameras.main.height,
         this.cameras.main.zoom,
       );
-      this.panInertiaVelocity = next.velocityX;
-      this.setCameraScrollX(next.scrollX);
+      this.panInertia = { x: next.velocityX, y: next.velocityY };
+      this.setCameraScroll(next.scrollX, next.scrollY);
     }
     this.updatePanCues();
   }
@@ -364,7 +373,7 @@ export class ChamberScene extends Phaser.Scene {
         w / 2,
         h - footerH * 0.18,
         this.room.worldBounds.width > w + 24
-          ? 'DRA ÅT SIDAN FÖR ATT UTFORSKA  ·  TRYCK PÅ FÖREMÅL'
+          ? 'DRA FÖR ATT UTFORSKA  ·  TRYCK PÅ FÖREMÅL'
           : 'TRYCK PÅ FÖREMÅL FÖR ATT UNDERSÖKA',
         {
           fontFamily: 'DM Sans, sans-serif',
@@ -376,7 +385,7 @@ export class ChamberScene extends Phaser.Scene {
       .setOrigin(0.5);
     root.add([footer, footerRule, this.narrative, instruction]);
 
-    // These screen-bound arrows make the wide room's horizontal extent visible.
+    // Screen-bound arrows show which directions still contain unexplored room.
     const cueY = headerH + (h - headerH - footerH) / 2;
     this.panLeftCue = this.add
       .text(12, cueY, '‹', {
@@ -396,26 +405,51 @@ export class ChamberScene extends Phaser.Scene {
         padding: { left: 5, right: 5, top: 0, bottom: 4 },
       })
       .setOrigin(1, 0.5);
-    root.add([this.panLeftCue, this.panRightCue]);
+    const cueX = w / 2;
+    this.panUpCue = this.add
+      .text(cueX, headerH + 12, '⌃', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '30px',
+        color: '#f0cd91',
+        backgroundColor: '#130f0b99',
+        padding: { left: 10, right: 10, top: 2, bottom: 2 },
+      })
+      .setOrigin(0.5, 0);
+    this.panDownCue = this.add
+      .text(cueX, h - footerH - 12, '⌄', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '30px',
+        color: '#f0cd91',
+        backgroundColor: '#130f0b99',
+        padding: { left: 10, right: 10, top: 2, bottom: 2 },
+      })
+      .setOrigin(0.5, 1);
+    root.add([
+      this.panLeftCue,
+      this.panRightCue,
+      this.panUpCue,
+      this.panDownCue,
+    ]);
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer) {
     if (this.modal || this.isFocused || !pointer.isDown) {
       return;
     }
-    this.panInertiaVelocity = 0;
+    this.panInertia = { x: 0, y: 0 };
     this.pointerGesture = {
       id: pointer.id,
       startX: pointer.x,
       startY: pointer.y,
       startScrollX: this.cameras.main.scrollX,
+      startScrollY: this.cameras.main.scrollY,
       moved: false,
       tapAllowed:
         pointer.y > this.uiHeaderHeight &&
         pointer.y < this.scale.height - this.uiFooterHeight,
-      horizontal: false,
       lastMoveAt: performance.now(),
       velocityX: 0,
+      velocityY: 0,
     };
     if (this.pointerGesture.tapAllowed) this.updateHover(pointer);
   }
@@ -431,23 +465,29 @@ export class ChamberScene extends Phaser.Scene {
     const deltaY = pointer.y - this.pointerGesture.startY;
     const now = performance.now();
     const elapsed = Math.max(1, now - gesture.lastMoveAt);
-    if (
-      !this.pointerGesture.moved &&
-      Math.hypot(deltaX, deltaY) >= TAP_SWIPE_THRESHOLD
-    ) {
+    if (!this.pointerGesture.moved && isPanGesture(deltaX, deltaY)) {
       this.pointerGesture.moved = true;
-      this.pointerGesture.horizontal = isHorizontalSwipe(deltaX, deltaY);
     }
-    if (this.pointerGesture.moved && this.pointerGesture.horizontal) {
+    if (this.pointerGesture.moved) {
       this.input.setDefaultCursor('grabbing');
-      const previousScrollX = this.cameras.main.scrollX;
-      this.setCameraScrollX(
+      const previousScroll = {
+        x: this.cameras.main.scrollX,
+        y: this.cameras.main.scrollY,
+      };
+      this.setCameraScroll(
         gesture.startScrollX - deltaX / this.cameras.main.zoom,
+        gesture.startScrollY - deltaY / this.cameras.main.zoom,
       );
-      const actualMove = this.cameras.main.scrollX - previousScrollX;
-      gesture.velocityX = Phaser.Math.Clamp(actualMove / elapsed, -1.2, 1.2);
-    } else if (this.pointerGesture.moved) {
-      gesture.velocityX = 0;
+      gesture.velocityX = Phaser.Math.Clamp(
+        (this.cameras.main.scrollX - previousScroll.x) / elapsed,
+        -1.2,
+        1.2,
+      );
+      gesture.velocityY = Phaser.Math.Clamp(
+        (this.cameras.main.scrollY - previousScroll.y) / elapsed,
+        -1.2,
+        1.2,
+      );
     }
     gesture.lastMoveAt = now;
   }
@@ -463,7 +503,9 @@ export class ChamberScene extends Phaser.Scene {
     this.input.setDefaultCursor('default');
 
     if (gesture.moved || !gesture.tapAllowed || this.isFocused) {
-      if (gesture.horizontal) this.panInertiaVelocity = gesture.velocityX;
+      if (gesture.moved) {
+        this.panInertia = { x: gesture.velocityX, y: gesture.velocityY };
+      }
       return;
     }
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
@@ -479,8 +521,11 @@ export class ChamberScene extends Phaser.Scene {
 
   private onPointerUpOutside(pointer: Phaser.Input.Pointer) {
     if (this.pointerGesture?.id !== pointer.id) return;
-    if (this.pointerGesture.horizontal) {
-      this.panInertiaVelocity = this.pointerGesture.velocityX;
+    if (this.pointerGesture.moved) {
+      this.panInertia = {
+        x: this.pointerGesture.velocityX,
+        y: this.pointerGesture.velocityY,
+      };
     }
     this.pointerGesture = undefined;
     this.input.setDefaultCursor('default');
@@ -842,30 +887,40 @@ export class ChamberScene extends Phaser.Scene {
     }
   }
 
-  private setCameraScrollX(scrollX: number) {
-    const { x, width } = this.room.worldBounds;
-    this.cameras.main.setScroll(
-      clampCameraScrollX(
-        scrollX,
-        { x, width },
-        this.cameras.main.width,
-        this.cameras.main.zoom,
-      ),
-      this.cameras.main.scrollY,
+  private setCameraScroll(scrollX: number, scrollY: number) {
+    const clamped = clampCameraScroll(
+      scrollX,
+      scrollY,
+      this.room.worldBounds,
+      this.cameras.main.width,
+      this.cameras.main.height,
+      this.cameras.main.zoom,
     );
+    this.cameras.main.setScroll(clamped.x, clamped.y);
     this.updatePanCues();
   }
 
   private updatePanCues() {
-    if (!this.panLeftCue || !this.panRightCue) return;
-    const availability = getHorizontalPanAvailability(
+    if (
+      !this.panLeftCue ||
+      !this.panRightCue ||
+      !this.panUpCue ||
+      !this.panDownCue
+    ) {
+      return;
+    }
+    const availability = getPanAvailability(
       this.cameras.main.scrollX,
+      this.cameras.main.scrollY,
       this.room.worldBounds,
       this.cameras.main.width,
+      this.cameras.main.height,
       this.cameras.main.zoom,
     );
     this.panLeftCue.setVisible(availability.left);
     this.panRightCue.setVisible(availability.right);
+    this.panUpCue.setVisible(availability.up);
+    this.panDownCue.setVisible(availability.down);
   }
 
   private onKeyboard(event: string, handler: () => void) {

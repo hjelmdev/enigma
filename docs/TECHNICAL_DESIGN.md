@@ -174,9 +174,9 @@ Prefer puzzle logic tested without Phaser. Keep UI input and animations outside 
 - Support desktop and mobile in **portrait and landscape**. Do not require device rotation.
 - Author each room in one shared world coordinate system with explicit world bounds. Hotspot areas and focus points use world coordinates and stay fixed as the viewport changes.
 - Use a pan-able 2D camera whose viewport follows the available screen size while the authored room keeps its scale. Wide screens see more of the room; narrow portrait screens see a narrower slice of the same room.
-- Constrain camera movement to the room's world bounds. Keep vertical framing stable and pan horizontally when the room exceeds the viewport.
-- Distinguish a tap from a swipe with a 14 px screen-space threshold and lock the gesture direction once crossed. Horizontal and moderately diagonal swipes pan the room; vertical gestures do not activate hotspots. A gesture may start anywhere over the game, including the header and footer; taps in those UI bands remain UI-only.
-- Show screen-bound left/right cues only while more room can be explored in that direction. Start each room with its first authored visual focus in view as a stable orientation reference. Clamp the camera using the visible world width at its current zoom.
+- Constrain camera movement on both axes to the room's world bounds. Pan horizontally and vertically whenever the authored room exceeds the viewport; do not squash the room to fit.
+- Distinguish a tap from a pan with a 14 px screen-space movement threshold. Once crossed, the pointer follows both axes and cannot activate a hotspot. Gestures may begin anywhere over the game, including the header and footer; taps in those UI bands remain UI-only.
+- Show screen-bound directional cues only while more room can be explored in that direction. Start each room with its first authored visual focus in view as a stable orientation reference. Clamp both camera axes using the visible world dimensions at the current zoom.
 - Keep navigation hints, inspection controls and other interface elements in a separate screen-space layer. They must not move with the room camera.
 - Touch hotspots need comfortable tap targets without overlapping wrong actions.
 - Focus interaction: save camera position → move/zoom to the selected world-space focus point → show a screen-bound close-up with an always-visible return control → restore the prior camera position.
