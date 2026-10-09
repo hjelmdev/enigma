@@ -1,6 +1,6 @@
 # ENIGMA
 
-ENIGMA is a mysterious, educational first-person point-and-click adventure set in and beneath an ancient Egyptian pyramid. This repository currently contains the Phase 1 technical prototype: a placeholder chamber with inspectable hotspots and a close-up interaction.
+ENIGMA is a mysterious, educational first-person point-and-click adventure set in and beneath an ancient Egyptian pyramid. The repository contains a small playable vertical slice with three linked chambers, three prototype puzzles, animated gates and a discovery map. Room art, names, clues and story text remain replaceable placeholders; they are not final art or story canon.
 
 ## Run locally
 
@@ -17,10 +17,14 @@ Useful checks: `npm run typecheck`, `npm run lint`, `npm test` and `npm run buil
 
 - `src/game/world/` contains typed, data-driven room and hotspot definitions.
 - `src/game/scenes/` contains the title menu and shared chamber interaction.
+- `src/game/puzzles/` contains testable puzzle rules separate from their Phaser UI.
+- `src/game/state/` tracks visited rooms and solved gates for the current browser session.
+- `src/game/ui/` contains the puzzle panels and schematic pyramid map.
+- `src/game/scenes/RoomArt.ts` draws replaceable layered-vector chamber art.
 - `tests/` contains content validation tests.
 - `docs/` is the source of truth for design and implementation direction.
 
-The prototype uses drawn placeholder scenery. Puzzle systems, the pyramid map and persistence are reserved for later roadmap phases. GitHub Pages deployment is configured in `.github/workflows/pages.yml` and builds at `/enigma/`.
+Progress stays while the current page session remains open and resets after a reload. Durable local saves, approved production art, final story and puzzle designs remain future work. GitHub Pages deployment is configured in `.github/workflows/pages.yml` and builds at `/enigma/`.
 
 ## Design documents
 

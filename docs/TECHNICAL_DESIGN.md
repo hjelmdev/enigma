@@ -39,6 +39,12 @@ docs/
 
 This tree is an example, not a mandatory file-for-file prescription.
 
+The current vertical slice keeps room content in `world/rooms.ts`, shared
+stone presentation in `scenes/RoomArt.ts`, and puzzle rules in pure functions
+under `puzzles/logic.ts`. Phaser panels in `ui/` present those rules. The
+in-memory `state/session.ts` records visited rooms and solved puzzle IDs until
+a page reload; versioned durable storage remains a later milestone.
+
 ## Data-driven world
 
 Use stable content IDs. Suggested conceptual models:
@@ -51,8 +57,9 @@ type PuzzleId = string;
 interface RoomDefinition {
   id: RoomId;
   title: string;
-  backgroundAssetId: string;
+  background: { top: number; bottom: number; wall: number; accent: number };
   worldBounds: { x: number; y: number; width: number; height: number };
+  intro: string;
   mapGeometry: {
     floor: number;
     x: number;
@@ -66,7 +73,7 @@ interface RoomDefinition {
 
 interface ExitDefinition {
   id: ExitId;
-  destinationRoomId: RoomId;
+  destinationRoomId: RoomId | 'ending';
   requiredPuzzleId?: PuzzleId;
   initiallyUnlocked?: boolean;
   // Do not infer discoverability from unlock state.
@@ -75,11 +82,14 @@ interface ExitDefinition {
 
 interface HotspotDefinition {
   id: string;
-  kind: 'inspect' | 'puzzle' | 'secret' | 'exit';
+  label: string;
+  description: string;
+  visual: 'vessel' | 'relief' | 'pedestal' | 'mirror' | 'door';
   // Authored world-space geometry, independent of viewport dimensions.
   area: { x: number; y: number; width: number; height: number };
   focus: { x: number; y: number; zoom: number };
-  targetId?: string;
+  puzzleId?: PuzzleId;
+  exitId?: ExitId;
 }
 ```
 
@@ -137,6 +147,10 @@ Prefer puzzle logic tested without Phaser. Keep UI input and animations outside 
 ## Map rendering
 
 The map reads only **discovery state** plus authored geometry. Unknown rooms/corridors are hidden, not merely greyed out. Pan/zoom should not reveal geometry of secret areas. Display visited rooms and per-room known exits/status; avoid spoilers.
+
+The current map is a schematic triangle and displays rooms visited during the
+current session. Its room positions and status indicators are a first cut, not
+final cartography.
 
 ## Testing
 

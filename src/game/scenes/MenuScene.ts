@@ -10,36 +10,86 @@ export class MenuScene extends Phaser.Scene {
     const cx = w / 2;
     const graphics = this.add.graphics();
 
-    graphics.fillGradientStyle(0x21170f, 0x21170f, 0x0d0b09, 0x0d0b09, 1);
+    graphics.fillGradientStyle(0x332316, 0x241a11, 0x090807, 0x090807, 1);
     graphics.fillRect(0, 0, w, h);
-    graphics.fillStyle(0xc48e49, 0.08);
-    graphics.fillCircle(cx, h * 0.39, Math.min(w, h) * 0.48);
-    graphics.fillStyle(0x49351f, 1);
+    graphics.fillStyle(0xd8a754, 0.1);
+    graphics.fillCircle(cx, h * 0.37, Math.min(w, h) * 0.62);
+    graphics.fillStyle(0x17120e, 0.64);
     graphics.fillPoints(
       [
-        { x: cx, y: h * 0.1 },
-        { x: w * 0.82, y: h * 0.61 },
-        { x: w * 0.18, y: h * 0.61 },
+        { x: w * 0.72, y: h * 0.18 },
+        { x: w * 0.96, y: h * 0.56 },
+        { x: w * 0.48, y: h * 0.56 },
       ],
       true,
     );
-    graphics.fillStyle(0x80613a, 0.85);
+    const frameW = Math.min(w * 0.76, 780);
+    const frameX = cx - frameW / 2;
+    const frameY = h * 0.1;
+    const frameH = h * 0.72;
+    graphics.fillStyle(0x080706, 0.58);
     graphics.fillPoints(
-      [
-        { x: cx, y: h * 0.1 },
-        { x: w * 0.5, y: h * 0.61 },
-        { x: w * 0.18, y: h * 0.61 },
-      ],
+      archPoints(frameX - 34, frameY - 18, frameW + 68, frameH + 45),
       true,
     );
-    graphics.fillStyle(0x2b2016, 0.8);
-    graphics.fillRect(w * 0.12, h * 0.61, w * 0.76, h * 0.39);
-    graphics.lineStyle(2, 0xc39a5c, 0.42);
-    graphics.lineBetween(w * 0.18, h * 0.61, w * 0.82, h * 0.61);
+    graphics.fillStyle(0x9a784d, 1);
+    graphics.fillPoints(archPoints(frameX, frameY, frameW, frameH), true);
+    graphics.fillStyle(0x302316, 1);
+    graphics.fillPoints(
+      archPoints(frameX + 18, frameY + 14, frameW - 36, frameH - 2),
+      true,
+    );
+    graphics.lineStyle(3, 0xd2ad72, 0.6);
+    graphics.strokePoints(
+      archPoints(frameX + 14, frameY + 12, frameW - 28, frameH - 2),
+      true,
+    );
+    graphics.fillStyle(0x0a0908, 0.96);
+    graphics.fillPoints(
+      archPoints(frameX + 48, frameY + 72, frameW - 96, frameH - 78),
+      true,
+    );
+    for (const side of [-1, 1]) {
+      const px = cx + side * (frameW * 0.41);
+      graphics.fillStyle(0x2a2017, 1);
+      graphics.fillPoints(
+        [
+          { x: px - 24, y: h * 0.3 },
+          { x: px + 24, y: h * 0.3 },
+          { x: px + 39, y: h * 0.78 },
+          { x: px - 39, y: h * 0.78 },
+        ],
+        true,
+      );
+      graphics.fillStyle(0x98764b, 0.78);
+      graphics.fillPoints(
+        [
+          { x: px - 15, y: h * 0.31 },
+          { x: px + 15, y: h * 0.31 },
+          { x: px + 25, y: h * 0.77 },
+          { x: px - 25, y: h * 0.77 },
+        ],
+        true,
+      );
+      graphics.fillStyle(0xc4a16c, 0.88);
+      graphics.fillRect(px - 46, h * 0.28, 92, 14);
+      graphics.fillRect(px - 38, h * 0.77, 76, 20);
+      graphics.fillStyle(0xe2ad57, 0.12);
+      graphics.fillCircle(px, h * 0.49, Math.min(w, h) * 0.2);
+    }
+    graphics.fillStyle(0x1a140f, 0.94);
+    graphics.fillRect(0, h * 0.81, w, h * 0.19);
+    graphics.lineStyle(2, 0xc09a62, 0.35);
+    graphics.lineBetween(0, h * 0.81, w, h * 0.81);
+    graphics.lineStyle(1, 0xe3c894, 0.16);
+    for (let i = 1; i < 5; i++) {
+      const yy = h * (0.81 + i * 0.035);
+      graphics.lineBetween(0, yy, w, yy);
+    }
 
     const titleSize = Phaser.Math.Clamp(Math.min(w * 0.09, h * 0.115), 32, 84);
-    const title = this.add
-      .text(cx, h * 0.69, 'ENIGMA', {
+    this.add
+      .text(cx, h * 0.53, 'ENIGMA', {
         fontFamily: 'Cinzel, Georgia, serif',
         fontSize: `${titleSize}px`,
         color: '#f1dfbc',
@@ -61,7 +111,7 @@ export class MenuScene extends Phaser.Scene {
       17,
     );
     this.add
-      .text(cx, h * 0.77, 'ETT MYSTERIUM VÄNTAR UNDER SANDEN', {
+      .text(cx, h * 0.62, 'ETT MYSTERIUM VÄNTAR UNDER SANDEN', {
         fontFamily: 'DM Sans, sans-serif',
         fontSize: `${taglineSize}px`,
         color: '#d7bd91',
@@ -106,17 +156,34 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // Small decorative divider ties the title to the room illustration.
-    const dividerY = title.y + title.height * 0.72;
     graphics.lineStyle(1, 0xc19a5c, 0.52);
     graphics.lineBetween(
       cx - Math.min(w * 0.19, 190),
-      dividerY,
+      h * 0.665,
       cx + Math.min(w * 0.19, 190),
-      dividerY,
+      h * 0.665,
     );
   }
 
   private handleResize() {
     this.scene.restart();
   }
+}
+
+function archPoints(x: number, y: number, width: number, height: number) {
+  const radius = width / 2;
+  const centerX = x + radius;
+  const points: Array<{ x: number; y: number }> = [
+    { x, y: y + height },
+    { x, y: y + radius },
+  ];
+  for (let step = 0; step <= 12; step++) {
+    const angle = Math.PI - (Math.PI * step) / 12;
+    points.push({
+      x: centerX + Math.cos(angle) * radius,
+      y: y + radius - Math.sin(angle) * radius,
+    });
+  }
+  points.push({ x: x + width, y: y + height });
+  return points;
 }

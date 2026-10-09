@@ -1,6 +1,14 @@
 import Phaser from 'phaser';
 import { rooms } from '../world/rooms';
-import type { HotspotDefinition, RoomDefinition } from '../world/types';
+import { drawChamber, animateDoorOpen } from './RoomArt';
+import { session, solvePuzzle, visitRoom } from '../state/session';
+import { createPuzzlePanel } from '../ui/PuzzlePanel';
+import { createPyramidMap } from '../ui/PyramidMap';
+import type {
+  HotspotDefinition,
+  PuzzleId,
+  RoomDefinition,
+} from '../world/types';
 
 const TAP_SWIPE_THRESHOLD = 12;
 const FOCUS_DURATION = 360;
@@ -15,6 +23,7 @@ interface CameraState {
 }
 
 interface SceneData {
+  roomId?: string;
   scrollX?: number;
   scrollY?: number;
   focusedHotspotId?: string;
@@ -42,6 +51,10 @@ export class ChamberScene extends Phaser.Scene {
   private hoveredHotspotId?: string;
   private uiHeaderHeight = 0;
   private uiFooterHeight = 0;
+  private modal?: Phaser.GameObjects.Container;
+  private doorLeaves = new Map<string, Phaser.GameObjects.Graphics[]>();
+  private narrative?: Phaser.GameObjects.Text;
+  private roomId = 'entrance';
 
   constructor() {
     super('chamber');
@@ -49,15 +62,25 @@ export class ChamberScene extends Phaser.Scene {
 
   create(data: SceneData = {}) {
     const { width: viewWidth, height: viewHeight } = this.scale;
+    this.roomId = data.roomId ?? session.currentRoomId;
+    this.room = rooms[this.roomId] ?? rooms.entrance;
+    visitRoom(this.room.id);
     const { x, y, width, height } = this.room.worldBounds;
     this.isFocused = false;
     this.focusedHotspot = undefined;
     this.cameraBeforeFocus = data.cameraBeforeFocus;
     this.focusPanel?.destroy();
+    this.modal?.destroy();
     this.hotspotOutlines.clear();
     this.pointerGesture = undefined;
 
-    this.drawRoom();
+    const art = drawChamber(this, this.room, this.openExitIds());
+    this.doorLeaves = new Map(
+      this.room.exits.map((exit, index) => [
+        exit.id,
+        art.doorLeaves.slice(index * 2, index * 2 + 2),
+      ]),
+    );
     this.createHotspots();
 
     const camera = this.cameras.main;
@@ -65,7 +88,7 @@ export class ChamberScene extends Phaser.Scene {
     camera.setZoom(1);
     const maxScrollX = Math.max(x, x + width - viewWidth);
     const maxScrollY = Math.max(y, y + height - viewHeight);
-    const defaultScrollX = x + (width - viewWidth) / 2;
+    const defaultScrollX = x + width * 0.54 - viewWidth / 2;
     const defaultScrollY = y + (height - viewHeight) / 2;
     camera.setScroll(
       Phaser.Math.Clamp(data.scrollX ?? defaultScrollX, x, maxScrollX),
@@ -73,7 +96,12 @@ export class ChamberScene extends Phaser.Scene {
     );
 
     this.createUiLayer(viewWidth, viewHeight);
-    this.onKeyboard('keydown-ESC', () => this.closeFocus());
+    this.onKeyboard('keydown-ESC', () => {
+      if (this.modal) {
+        this.modal.destroy();
+        this.modal = undefined;
+      } else this.closeFocus();
+    });
     this.onKeyboard('keydown-BACKSPACE', () => this.closeFocus());
     this.room.hotspots.forEach((hotspot, index) => {
       this.onKeyboard(`keydown-F${index + 1}`, () => this.openFocus(hotspot));
@@ -103,95 +131,6 @@ export class ChamberScene extends Phaser.Scene {
     if (hotspotToRestore) {
       this.cameraBeforeFocus = data.cameraBeforeFocus;
       this.time.delayedCall(0, () => this.openFocus(hotspotToRestore, true));
-    }
-  }
-
-  private drawRoom() {
-    const { x, y, width, height } = this.room.worldBounds;
-    const g = this.add.graphics();
-    g.fillGradientStyle(
-      this.room.background.top,
-      this.room.background.top,
-      this.room.background.bottom,
-      this.room.background.bottom,
-      1,
-    );
-    g.fillRect(x, y, width, height);
-
-    // The chamber is authored once in world space. The camera reveals a
-    // different horizontal slice at the same scale on narrower screens.
-    const wallTop = 240;
-    const wallBottom = 1050;
-    const floorTop = 1050;
-    g.fillStyle(0x15110d, 0.45);
-    g.fillRect(x, y, width, wallTop);
-    g.fillStyle(this.room.background.wall, 1);
-    g.fillRect(x + 120, wallTop, width - 240, wallBottom - wallTop);
-    g.fillStyle(0x241b13, 1);
-    g.fillPoints(
-      [
-        { x: x + 120, y: floorTop },
-        { x: x + width - 120, y: floorTop },
-        { x: x + width, y: y + height },
-        { x, y: y + height },
-      ],
-      true,
-    );
-
-    // Repeated masonry marks the same broad room without making it a maze.
-    g.lineStyle(2, 0x4c3a28, 0.36);
-    for (let row = 0; row < 4; row++) {
-      const rowY = wallTop + row * 190;
-      g.lineBetween(x + 120, rowY, x + width - 120, rowY);
-      const offset = row % 2 === 0 ? 0 : 150;
-      for (let column = 0; column < 18; column++) {
-        const columnX = x + 120 + offset + column * 300;
-        if (columnX < x + width - 120) {
-          g.lineBetween(columnX, rowY, columnX, rowY + 190);
-        }
-      }
-    }
-
-    // Central shadowed doorway and torch-lit columns are fixed room landmarks.
-    const doorX = 1320;
-    const doorY = 330;
-    const doorW = 360;
-    const doorH = 690;
-    g.fillStyle(0x21180f, 0.98);
-    g.fillRoundedRect(doorX, doorY, doorW, doorH, 150);
-    g.fillStyle(0x100d0a, 0.78);
-    g.fillRect(doorX + 52, doorY + 300, doorW - 104, doorH - 300);
-    for (const columnX of [330, 2570]) {
-      g.fillStyle(0x9c7848, 0.88);
-      g.fillRoundedRect(columnX, 300, 74, 740, 10);
-      g.fillStyle(0xc3a16b, 0.9);
-      g.fillRoundedRect(columnX - 18, 290, 110, 32, 6);
-      g.fillRoundedRect(columnX - 12, 1010, 98, 38, 6);
-      g.fillStyle(0xf4b356, 0.12);
-      g.fillCircle(columnX + 37, 540, 185);
-    }
-
-    // Long floor seams reinforce the depth of the wide chamber.
-    g.lineStyle(2, 0x8a6c48, 0.22);
-    for (let i = 1; i <= 8; i++) {
-      const lineY = floorTop + i * 68;
-      const inset = i * 58;
-      g.lineBetween(x + inset, lineY, x + width - inset, lineY);
-    }
-    for (let i = 0; i <= 12; i++) {
-      const floorX = x + i * (width / 12);
-      g.lineBetween(width / 2, floorTop, floorX, y + height);
-    }
-
-    for (const hotspot of this.room.hotspots) {
-      const artifact = this.add.graphics();
-      this.drawArtifact(
-        artifact,
-        hotspot.visual,
-        hotspot.area.width,
-        hotspot.area.height,
-      );
-      artifact.setPosition(hotspot.area.x, hotspot.area.y).setDepth(2);
     }
   }
 
@@ -276,31 +215,9 @@ export class ChamberScene extends Phaser.Scene {
   private createHotspots() {
     this.hotspotOutlines = new Map();
     for (const hotspot of this.room.hotspots) {
-      const { x, y, width, height } = hotspot.area;
       const outline = this.add.graphics().setDepth(4);
       this.drawOutline(outline, hotspot, false);
       this.hotspotOutlines.set(hotspot.id, outline);
-
-      this.add
-        .text(x + width / 2, y + height + 14, hotspot.label, {
-          fontFamily: 'DM Sans, sans-serif',
-          fontSize: '20px',
-          color: '#fff0d2',
-          fontStyle: '600',
-          backgroundColor: '#21180fef',
-          padding: { x: 12, y: 8 },
-        })
-        .setOrigin(0.5, 0)
-        .setDepth(5);
-      this.add
-        .text(x + width / 2, y + height + 57, 'UNDERSÖK', {
-          fontFamily: 'DM Sans, sans-serif',
-          fontSize: '12px',
-          color: '#d9b06b',
-          letterSpacing: 1,
-        })
-        .setOrigin(0.5, 0)
-        .setDepth(5);
     }
   }
 
@@ -309,18 +226,23 @@ export class ChamberScene extends Phaser.Scene {
     hotspot: HotspotDefinition,
     active: boolean,
   ) {
-    const { x, y, width, height } = hotspot.area;
     graphics.clear();
-    graphics.fillStyle(0xd2a75e, active ? 0.18 : 0.055);
-    graphics.lineStyle(
-      active ? 4 : 3,
-      active ? 0xffd88c : 0xe2c17d,
-      active ? 1 : 0.74,
+    if (!active) return;
+    const { x, y, width, height } = hotspot.area;
+    graphics.fillStyle(0xf2c777, 0.12);
+    graphics.fillEllipse(
+      x + width / 2,
+      y + height / 2,
+      width * 1.2,
+      height * 1.08,
     );
-    graphics.fillRoundedRect(x, y, width, height, 24);
-    graphics.strokeRoundedRect(x, y, width, height, 24);
-    graphics.fillStyle(active ? 0xffd88c : 0xd9b06b, 0.96);
-    graphics.fillCircle(x + width / 2, y + 15, 7);
+    graphics.lineStyle(3, 0xffdda0, 0.8);
+    graphics.strokeEllipse(
+      x + width / 2,
+      y + height / 2,
+      width * 1.04,
+      height * 0.96,
+    );
   }
 
   private createUiLayer(w: number, h: number) {
@@ -346,11 +268,6 @@ export class ChamberScene extends Phaser.Scene {
     divider.lineStyle(1, 0xc39a5c, 0.52);
     divider.lineBetween(0, headerH, w, headerH);
     const titleSize = Phaser.Math.Clamp(Math.min(w * 0.024, h * 0.045), 13, 23);
-    const promptSize = Phaser.Math.Clamp(
-      Math.min(w * 0.016, h * 0.026),
-      10,
-      15,
-    );
     const title = this.add
       .text(22, headerH / 2, this.room.title.toLocaleUpperCase('sv-SE'), {
         fontFamily: 'Cinzel, Georgia, serif',
@@ -359,47 +276,62 @@ export class ChamberScene extends Phaser.Scene {
         letterSpacing: 2,
       })
       .setOrigin(0, 0.5);
-    const prompt = this.add
-      .text(w - 22, headerH / 2, 'TRYCK PÅ ETT MARKERAT FÖREMÅL', {
+    const mapButton = this.add
+      .text(w - 22, headerH / 2, '⌖  KARTA', {
         fontFamily: 'DM Sans, sans-serif',
-        fontSize: `${promptSize}px`,
+        fontSize: `${Phaser.Math.Clamp(Math.min(w * 0.022, h * 0.034), 13, 17)}px`,
         color: '#f3dfbb',
-        letterSpacing: 0.5,
+        letterSpacing: 1,
       })
-      .setOrigin(1, 0.5);
+      .setOrigin(1, 0.5)
+      .setInteractive({ useHandCursor: true });
+    mapButton.on('pointerdown', () => this.openMap());
 
-    root.add([header, divider, title, prompt]);
+    root.add([header, divider, title, mapButton]);
 
-    if (this.room.worldBounds.width > w + 24) {
-      const footerH = Math.max(42, Math.min(58, h * 0.07));
-      this.uiFooterHeight = footerH;
-      const footer = this.add.rectangle(
+    const footerH = Math.max(66, Math.min(86, h * 0.12));
+    this.uiFooterHeight = footerH;
+    const footer = this.add.rectangle(
+      w / 2,
+      h - footerH / 2,
+      w,
+      footerH,
+      0x130f0b,
+      0.86,
+    );
+    const footerRule = this.add.graphics();
+    footerRule.lineStyle(1, 0xc39a5c, 0.42);
+    footerRule.lineBetween(0, h - footerH, w, h - footerH);
+    this.narrative = this.add
+      .text(w / 2, h - footerH * 0.63, this.room.intro, {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: `${Phaser.Math.Clamp(Math.min(w * 0.022, h * 0.029), 12, 16)}px`,
+        color: '#e5d4b4',
+        align: 'center',
+        wordWrap: { width: w - 36 },
+      })
+      .setOrigin(0.5);
+    const instruction = this.add
+      .text(
         w / 2,
-        h - footerH / 2,
-        w,
-        footerH,
-        0x130f0b,
-        0.78,
-      );
-      const footerRule = this.add.graphics();
-      footerRule.lineStyle(1, 0xc39a5c, 0.36);
-      footerRule.lineBetween(0, h - footerH, w, h - footerH);
-      const instruction = this.add
-        .text(w / 2, h - footerH / 2, 'DRA ÅT SIDAN FÖR ATT UTFORSKA RUMMET', {
+        h - footerH * 0.18,
+        this.room.worldBounds.width > w + 24
+          ? 'DRA ÅT SIDAN FÖR ATT UTFORSKA  ·  TRYCK PÅ FÖREMÅL'
+          : 'TRYCK PÅ FÖREMÅL FÖR ATT UNDERSÖKA',
+        {
           fontFamily: 'DM Sans, sans-serif',
-          fontSize: `${Phaser.Math.Clamp(Math.min(w * 0.022, h * 0.033), 12, 16)}px`,
-          color: '#d7bd91',
-          letterSpacing: 1,
-        })
-        .setOrigin(0.5);
-      root.add([footer, footerRule, instruction]);
-    } else {
-      this.uiFooterHeight = 0;
-    }
+          fontSize: `${Phaser.Math.Clamp(Math.min(w * 0.018, h * 0.025), 10, 13)}px`,
+          color: '#c9a66d',
+          letterSpacing: 0.6,
+        },
+      )
+      .setOrigin(0.5);
+    root.add([footer, footerRule, this.narrative, instruction]);
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer) {
     if (
+      this.modal ||
       this.isFocused ||
       !pointer.isDown ||
       pointer.y <= this.uiHeaderHeight ||
@@ -418,6 +350,7 @@ export class ChamberScene extends Phaser.Scene {
   }
 
   private onPointerMove(pointer: Phaser.Input.Pointer) {
+    if (this.modal) return;
     if (!this.pointerGesture || this.pointerGesture.id !== pointer.id) {
       if (!this.isFocused && !pointer.isDown) this.updateHover(pointer);
       return;
@@ -436,6 +369,10 @@ export class ChamberScene extends Phaser.Scene {
   }
 
   private onPointerUp(pointer: Phaser.Input.Pointer) {
+    if (this.modal) {
+      this.pointerGesture = undefined;
+      return;
+    }
     const gesture = this.pointerGesture;
     if (!gesture || gesture.id !== pointer.id) return;
     this.pointerGesture = undefined;
@@ -481,17 +418,178 @@ export class ChamberScene extends Phaser.Scene {
     const outline = this.hotspotOutlines.get(hotspot.id);
     if (outline) this.drawOutline(outline, hotspot, true);
     if (!outline) {
-      this.openFocus(hotspot);
+      this.activateHotspot(hotspot);
       return;
     }
     this.tweens.add({
       targets: outline,
-      scaleX: 1.035,
-      scaleY: 1.035,
-      duration: 90,
+      alpha: { from: 0, to: 1 },
+      duration: 100,
       yoyo: true,
-      onComplete: () => this.openFocus(hotspot),
+      onComplete: () => this.activateHotspot(hotspot),
     });
+  }
+
+  private activateHotspot(hotspot: HotspotDefinition) {
+    if (hotspot.puzzleId) {
+      this.openPuzzle(hotspot.puzzleId);
+      return;
+    }
+    if (hotspot.exitId) {
+      this.useExit(hotspot.exitId);
+      return;
+    }
+    this.narrative?.setText(`${hotspot.label}: ${hotspot.description}`);
+    this.openFocus(hotspot);
+  }
+
+  private openPuzzle(id: PuzzleId) {
+    if (session.solvedPuzzleIds.includes(id)) {
+      this.narrative?.setText('Mekanismen är redan löst. Porten står öppen.');
+      return;
+    }
+    this.modal?.destroy();
+    this.modal = createPuzzlePanel(
+      this,
+      this.scale.width,
+      this.scale.height,
+      id,
+      () => {
+        this.modal = undefined;
+        solvePuzzle(id);
+        this.animateUnlockedDoor(id);
+        this.narrative?.setText(
+          'Ett dovt muller går genom stenen. Porten börjar glida upp.',
+        );
+      },
+      () => {
+        this.modal?.destroy();
+        this.modal = undefined;
+      },
+    );
+    this.uiRoot?.add(this.modal);
+  }
+
+  private animateUnlockedDoor(id: PuzzleId) {
+    const exit = this.room.exits.find(
+      (candidate) => candidate.requiredPuzzleId === id,
+    );
+    if (!exit) return;
+    this.cameras.main.pan(exit.x, 720, 480, 'Sine.easeInOut');
+    this.time.delayedCall(480, () =>
+      animateDoorOpen(this, this.doorLeaves.get(exit.id) ?? []),
+    );
+  }
+
+  private useExit(exitId: string) {
+    const exit = this.room.exits.find((candidate) => candidate.id === exitId);
+    if (!exit) return;
+    if (
+      exit.requiredPuzzleId &&
+      !session.solvedPuzzleIds.includes(exit.requiredPuzzleId)
+    ) {
+      this.narrative?.setText(
+        'Porten är stängd. Undersök mekanismen i kammaren.',
+      );
+      return;
+    }
+    if (exit.destinationRoomId === 'ending') {
+      this.openEnding();
+      return;
+    }
+    this.narrative?.setText(
+      'Stenporten glider åt sidan. En ny kammare väntar.',
+    );
+    session.currentRoomId = exit.destinationRoomId;
+    this.cameras.main.fadeOut(420, 8, 6, 4);
+    this.time.delayedCall(420, () =>
+      this.scene.restart({ roomId: exit.destinationRoomId }),
+    );
+  }
+
+  private openEnding() {
+    const card = this.add.container(0, 0).setDepth(21);
+    card.add(
+      this.add
+        .rectangle(0, 0, this.scale.width, this.scale.height, 0x090806, 0.9)
+        .setOrigin(0),
+    );
+    card.add(
+      this.add
+        .text(this.scale.width / 2, this.scale.height * 0.4, 'SOLENS KAMMARE', {
+          fontFamily: 'Cinzel, Georgia, serif',
+          fontSize: '32px',
+          color: '#f1dfbc',
+        })
+        .setOrigin(0.5),
+    );
+    card.add(
+      this.add
+        .text(
+          this.scale.width / 2,
+          this.scale.height * 0.52,
+          'Ljuset bryter sigillen. Bakom porten väntar fler rum än kartan kan visa.',
+          {
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: '17px',
+            color: '#e2d1b1',
+            align: 'center',
+            wordWrap: { width: this.scale.width * 0.78 },
+          },
+        )
+        .setOrigin(0.5),
+    );
+    const back = this.add
+      .rectangle(
+        this.scale.width / 2,
+        this.scale.height * 0.72,
+        280,
+        58,
+        0x9c7745,
+      )
+      .setInteractive({ useHandCursor: true });
+    const label = this.add
+      .text(back.x, back.y, 'TILL KAMRARNA', {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: '16px',
+        color: '#20170f',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    const close = () => card.destroy();
+    back.on('pointerdown', close);
+    label.on('pointerdown', close);
+    card.add([back, label]);
+    this.uiRoot?.add(card);
+  }
+
+  private openMap() {
+    if (this.isFocused || this.modal) return;
+    this.modal = createPyramidMap(
+      this,
+      rooms,
+      session.visitedRoomIds,
+      this.room.id,
+      session.solvedPuzzleIds,
+      this.scale.width,
+      this.scale.height,
+      () => {
+        this.modal?.destroy();
+        this.modal = undefined;
+      },
+    );
+    this.uiRoot?.add(this.modal);
+  }
+
+  private openExitIds() {
+    return this.room.exits
+      .filter(
+        (exit) =>
+          exit.initiallyUnlocked ||
+          (exit.requiredPuzzleId &&
+            session.solvedPuzzleIds.includes(exit.requiredPuzzleId)),
+      )
+      .map((exit) => exit.id);
   }
 
   private openFocus(hotspot: HotspotDefinition, restoreState = false) {
@@ -655,7 +753,10 @@ export class ChamberScene extends Phaser.Scene {
     const { x, width } = this.room.worldBounds;
     const viewWidth = this.cameras.main.width / this.cameras.main.zoom;
     const maxScrollX = Math.max(x, x + width - viewWidth);
-    this.cameras.main.setScroll(Phaser.Math.Clamp(scrollX, x, maxScrollX));
+    this.cameras.main.setScroll(
+      Phaser.Math.Clamp(scrollX, x, maxScrollX),
+      this.cameras.main.scrollY,
+    );
   }
 
   private onKeyboard(event: string, handler: () => void) {

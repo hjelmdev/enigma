@@ -1,19 +1,37 @@
+export type PuzzleId = 'glyph-sequence' | 'balanced-stones' | 'sun-mirrors';
+
 export interface HotspotDefinition {
   id: string;
   label: string;
   description: string;
-  visual: 'vessel' | 'relief';
-  // All positions use the room's authored world coordinate system.
+  visual: 'vessel' | 'relief' | 'pedestal' | 'mirror' | 'door';
   area: { x: number; y: number; width: number; height: number };
-  // The camera moves to this world-space point before applying the zoom.
   focus: { x: number; y: number; zoom: number };
+  puzzleId?: PuzzleId;
+  exitId?: string;
+}
+
+export interface ExitDefinition {
+  id: string;
+  destinationRoomId: string;
+  requiredPuzzleId?: PuzzleId;
+  initiallyUnlocked?: boolean;
+  x: number;
 }
 
 export interface RoomDefinition {
   id: string;
   title: string;
+  intro: string;
   worldBounds: { x: number; y: number; width: number; height: number };
-  background: { top: number; bottom: number; wall: number };
-  exits: string[];
+  background: { top: number; bottom: number; wall: number; accent: number };
+  mapGeometry: {
+    floor: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  exits: ExitDefinition[];
   hotspots: HotspotDefinition[];
 }

@@ -24,28 +24,31 @@
 
 **Done when:** the user can explore and inspect a small prototype in a browser and on mobile.
 
-## Phase 2 — Two genuinely different puzzles
+## Phase 2 — A first trio of puzzle prototypes
 
-- [ ] Build **two functional puzzle interaction types**, not two variants of one numerical lock.
-- [ ] Keep puzzle logic separate from visual rendering.
-- [ ] Define victory, reset, hint steps, success feedback and gate unlock.
-- [ ] Ensure solved gates stay open when revisiting.
-- [ ] Test puzzle correctness and representative difficulty variations.
+- [x] Build three provisional interaction types: symbol sequence, weight balance and mirror alignment.
+- [x] Keep puzzle logic separate from visual rendering.
+- [x] Define win conditions, retry behavior, contextual clues, success feedback and gate unlock.
+- [x] Ensure solved gates stay open when revisiting during the current session.
+- [x] Test each puzzle's core correctness rule.
 
-**Candidate placeholders:** balance weights/logic and mirrors/geometry. Final mechanics need design approval.
+These names, clues and mechanics are provisional implementation placeholders. Final puzzle content still needs design review.
 
-**Done when:** a player can solve two distinct puzzles and progress through a short route.
+**Done when:** a player can solve distinct puzzles and progress through a short route.
 
 ## Phase 3 — Discovery, secrets and persistence
 
 - [ ] Add one optional, discoverable secret area or artifact.
 - [ ] Persist visited rooms, revealed connections, unlocked gates and solved puzzles.
 - [ ] Implement robust IndexedDB save/load with versioning.
-- [ ] Implement cutaway pyramid map that grows only as locations are discovered.
+- [x] Implement a schematic cutaway map that grows only as locations are discovered in the current session.
 - [ ] Show meaningful known-room/exit status and support map pan/zoom.
 - [ ] Confirm restart/refresh/backtracking never resets legitimate progress.
 
 **Done when:** exploration, permanent unlocks, secrets and map discovery work across reloads.
+
+**Current status:** room discovery and puzzle unlocks work during one browser
+session. Secret content and durable IndexedDB persistence are still pending.
 
 ## Phase 4 — Polish and user testing
 

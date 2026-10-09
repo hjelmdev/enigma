@@ -23,6 +23,8 @@ The frame should feel intriguing at first glance yet have clear, tappable points
 - Different vantage points are welcome. Room art need not share one rigid angle.
 - Some panoramic/oversized chamber scenes may pan or swipe on mobile.
 - Compose rooms so their focal objects remain legible in both portrait and landscape views. Pan across wide scenes on smaller screens instead of shrinking the room to fit.
+- Placeholder chambers should still read as places: layer carved stone blocks, framed arched gates, columns, recessed alcoves, reliefs and cast shadows. Use restrained light pools for depth; avoid flat abstract slabs, slide-like compositions and permanent rectangular hotspot outlines.
+- Treat vector room dressing as replaceable scenery. Keep hit areas and puzzle states independent, and show interaction feedback briefly on hover or press.
 
 ## Production principle: backgrounds are not the mechanics
 
