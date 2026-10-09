@@ -1,160 +1,197 @@
 import Phaser from 'phaser';
 import { rooms } from '../world/rooms';
-import type { HotspotDefinition } from '../world/types';
+import type { HotspotDefinition, RoomDefinition } from '../world/types';
+
+const TAP_SWIPE_THRESHOLD = 12;
+const FOCUS_DURATION = 360;
+const RETURN_DURATION = 300;
+
+interface CameraState {
+  scrollX: number;
+  scrollY: number;
+  zoom: number;
+  centerX: number;
+  centerY: number;
+}
+
+interface SceneData {
+  scrollX?: number;
+  scrollY?: number;
+  focusedHotspotId?: string;
+  cameraBeforeFocus?: CameraState;
+}
+
+interface PointerGesture {
+  id: number;
+  startX: number;
+  startY: number;
+  startScrollX: number;
+  moved: boolean;
+}
 
 export class ChamberScene extends Phaser.Scene {
-  private focusPanel?: Phaser.GameObjects.Container;
-  private focusCamera?: Phaser.Cameras.Scene2D.Camera;
-  private focusedHotspot?: HotspotDefinition;
+  private room: RoomDefinition = rooms.entrance;
   private isFocused = false;
-  private room = rooms.entrance;
+  private focusedHotspot?: HotspotDefinition;
+  private cameraBeforeFocus?: CameraState;
+  private focusPanel?: Phaser.GameObjects.Container;
+  private uiRoot?: Phaser.GameObjects.Container;
+  private hotspotOutlines = new Map<string, Phaser.GameObjects.Graphics>();
+  private keyboardHandlers: Array<{ event: string; handler: () => void }> = [];
+  private pointerGesture?: PointerGesture;
+  private hoveredHotspotId?: string;
+  private uiHeaderHeight = 0;
+  private uiFooterHeight = 0;
 
   constructor() {
     super('chamber');
   }
 
-  create(data: { focusedHotspotId?: string } = {}) {
-    const { width: w, height: h } = this.scale;
+  create(data: SceneData = {}) {
+    const { width: viewWidth, height: viewHeight } = this.scale;
+    const { x, y, width, height } = this.room.worldBounds;
     this.isFocused = false;
+    this.focusedHotspot = undefined;
+    this.cameraBeforeFocus = data.cameraBeforeFocus;
     this.focusPanel?.destroy();
-    this.drawRoom(w, h);
+    this.hotspotOutlines.clear();
+    this.pointerGesture = undefined;
 
-    const titleSize = Phaser.Math.Clamp(Math.min(w * 0.024, h * 0.045), 13, 23);
-    const hintSize = Phaser.Math.Clamp(Math.min(w * 0.016, h * 0.026), 10, 15);
-    this.add
-      .text(24, 20, this.room.title.toLocaleUpperCase('sv-SE'), {
-        fontFamily: 'Cinzel, Georgia, serif',
-        fontSize: `${titleSize}px`,
-        color: '#f0dfbf',
-        letterSpacing: 2,
-        backgroundColor: '#1a140eee',
-        padding: { x: 12, y: 8 },
-      })
-      .setDepth(2);
-    this.add
-      .text(w - 24, 20, 'TRYCK PÅ ETT MARKERAT FÖREMÅL', {
-        fontFamily: 'DM Sans, sans-serif',
-        fontSize: `${hintSize}px`,
-        color: '#f3dfbb',
-        letterSpacing: 0.5,
-        align: 'right',
-        backgroundColor: '#1a140eee',
-        padding: { x: 12, y: 9 },
-        wordWrap: { width: Math.max(130, w * 0.57) },
-      })
-      .setOrigin(1, 0)
-      .setDepth(2);
+    this.drawRoom();
+    this.createHotspots();
 
-    for (const hotspot of this.room.hotspots) this.addHotspot(hotspot, w, h);
-    this.input.keyboard?.on('keydown-ESC', this.closeFocus, this);
-    this.input.keyboard?.on('keydown-BACKSPACE', this.closeFocus, this);
+    const camera = this.cameras.main;
+    camera.setBounds(x, y, width, height);
+    camera.setZoom(1);
+    const maxScrollX = Math.max(x, x + width - viewWidth);
+    const maxScrollY = Math.max(y, y + height - viewHeight);
+    const defaultScrollX = x + (width - viewWidth) / 2;
+    const defaultScrollY = y + (height - viewHeight) / 2;
+    camera.setScroll(
+      Phaser.Math.Clamp(data.scrollX ?? defaultScrollX, x, maxScrollX),
+      Phaser.Math.Clamp(data.scrollY ?? defaultScrollY, y, maxScrollY),
+    );
+
+    this.createUiLayer(viewWidth, viewHeight);
+    this.onKeyboard('keydown-ESC', () => this.closeFocus());
+    this.onKeyboard('keydown-BACKSPACE', () => this.closeFocus());
     this.room.hotspots.forEach((hotspot, index) => {
-      this.input.keyboard?.on(`keydown-F${index + 1}`, () =>
-        this.openFocus(hotspot),
-      );
+      this.onKeyboard(`keydown-F${index + 1}`, () => this.openFocus(hotspot));
     });
+    this.input.on('pointerdown', this.onPointerDown, this);
+    this.input.on('pointermove', this.onPointerMove, this);
+    this.input.on('pointerup', this.onPointerUp, this);
+    this.input.on('pointerupoutside', this.onPointerUpOutside, this);
 
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
+      this.input.off('pointerdown', this.onPointerDown, this);
+      this.input.off('pointermove', this.onPointerMove, this);
+      this.input.off('pointerup', this.onPointerUp, this);
+      this.input.off('pointerupoutside', this.onPointerUpOutside, this);
+      for (const { event, handler } of this.keyboardHandlers) {
+        this.input.keyboard?.off(event, handler);
+      }
+      this.keyboardHandlers = [];
     });
-    this.cameras.main.fadeIn(320, 15, 11, 7);
+    camera.fadeIn(280, 15, 11, 7);
 
     const hotspotToRestore = this.room.hotspots.find(
       ({ id }) => id === data.focusedHotspotId,
     );
     if (hotspotToRestore) {
-      this.time.delayedCall(0, () => this.openFocus(hotspotToRestore));
+      this.cameraBeforeFocus = data.cameraBeforeFocus;
+      this.time.delayedCall(0, () => this.openFocus(hotspotToRestore, true));
     }
   }
 
-  private drawRoom(w: number, h: number) {
-    const { top, bottom, wall } = this.room.background;
+  private drawRoom() {
+    const { x, y, width, height } = this.room.worldBounds;
     const g = this.add.graphics();
-    g.fillGradientStyle(top, top, bottom, bottom, 1);
-    g.fillRect(0, 0, w, h);
+    g.fillGradientStyle(
+      this.room.background.top,
+      this.room.background.top,
+      this.room.background.bottom,
+      this.room.background.bottom,
+      1,
+    );
+    g.fillRect(x, y, width, height);
 
-    // Layered stone shapes make the temporary chamber read as a real room.
-    g.fillStyle(0x17120f, 0.48);
-    g.fillPoints(
-      [
-        { x: 0, y: h * 0.13 },
-        { x: w * 0.5, y: h * 0.02 },
-        { x: w, y: h * 0.13 },
-        { x: w, y: h * 0.72 },
-        { x: 0, y: h * 0.72 },
-      ],
-      true,
-    );
-    g.fillStyle(wall, 1);
-    g.fillPoints(
-      [
-        { x: w * 0.08, y: h * 0.16 },
-        { x: w * 0.92, y: h * 0.16 },
-        { x: w * 0.79, y: h * 0.72 },
-        { x: w * 0.21, y: h * 0.72 },
-      ],
-      true,
-    );
+    // The chamber is authored once in world space. The camera reveals a
+    // different horizontal slice at the same scale on narrower screens.
+    const wallTop = 240;
+    const wallBottom = 1050;
+    const floorTop = 1050;
+    g.fillStyle(0x15110d, 0.45);
+    g.fillRect(x, y, width, wallTop);
+    g.fillStyle(this.room.background.wall, 1);
+    g.fillRect(x + 120, wallTop, width - 240, wallBottom - wallTop);
     g.fillStyle(0x241b13, 1);
     g.fillPoints(
       [
-        { x: w * 0.21, y: h * 0.72 },
-        { x: w * 0.79, y: h * 0.72 },
-        { x: w, y: h },
-        { x: 0, y: h },
+        { x: x + 120, y: floorTop },
+        { x: x + width - 120, y: floorTop },
+        { x: x + width, y: y + height },
+        { x, y: y + height },
       ],
       true,
     );
 
-    // Recessed doorway, pillars and torch glow give the room visual landmarks.
-    const doorW = Math.min(w * 0.27, h * 0.54);
-    const doorX = (w - doorW) / 2;
-    const doorY = h * 0.18;
-    const doorH = h * 0.46;
-    g.fillStyle(0x21180f, 0.97);
-    g.fillRoundedRect(doorX, doorY, doorW, doorH, Math.min(doorW * 0.45, 90));
-    g.fillStyle(0x100d0a, 0.66);
-    g.fillRect(
-      doorX + doorW * 0.14,
-      doorY + doorH * 0.3,
-      doorW * 0.72,
-      doorH * 0.7,
-    );
-    g.fillStyle(0x9c7848, 0.8);
-    for (const side of [0.09, 0.88]) {
-      g.fillRoundedRect(w * side, h * 0.2, w * 0.035, h * 0.51, 5);
-      g.fillStyle(0xc3a16b, 0.8);
-      g.fillRect(w * (side - 0.009), h * 0.2, w * 0.053, h * 0.024);
-      g.fillStyle(0x9c7848, 0.8);
+    // Repeated masonry marks the same broad room without making it a maze.
+    g.lineStyle(2, 0x4c3a28, 0.36);
+    for (let row = 0; row < 4; row++) {
+      const rowY = wallTop + row * 190;
+      g.lineBetween(x + 120, rowY, x + width - 120, rowY);
+      const offset = row % 2 === 0 ? 0 : 150;
+      for (let column = 0; column < 18; column++) {
+        const columnX = x + 120 + offset + column * 300;
+        if (columnX < x + width - 120) {
+          g.lineBetween(columnX, rowY, columnX, rowY + 190);
+        }
+      }
     }
-    g.fillStyle(0xf4b356, 0.1);
-    g.fillCircle(w * 0.13, h * 0.34, Math.min(w, h) * 0.18);
-    g.fillCircle(w * 0.87, h * 0.34, Math.min(w, h) * 0.18);
 
-    g.lineStyle(2, 0x9a7950, 0.3);
-    g.lineBetween(w * 0.08, h * 0.16, w * 0.21, h * 0.72);
-    g.lineBetween(w * 0.92, h * 0.16, w * 0.79, h * 0.72);
-    for (let i = 1; i <= 4; i++) {
-      const y = h * (0.72 + i * 0.07);
-      g.lineStyle(2, 0x8a6c48, 0.2);
-      g.lineBetween(w * (0.21 - i * 0.052), y, w * (0.79 + i * 0.052), y);
+    // Central shadowed doorway and torch-lit columns are fixed room landmarks.
+    const doorX = 1320;
+    const doorY = 330;
+    const doorW = 360;
+    const doorH = 690;
+    g.fillStyle(0x21180f, 0.98);
+    g.fillRoundedRect(doorX, doorY, doorW, doorH, 150);
+    g.fillStyle(0x100d0a, 0.78);
+    g.fillRect(doorX + 52, doorY + 300, doorW - 104, doorH - 300);
+    for (const columnX of [330, 2570]) {
+      g.fillStyle(0x9c7848, 0.88);
+      g.fillRoundedRect(columnX, 300, 74, 740, 10);
+      g.fillStyle(0xc3a16b, 0.9);
+      g.fillRoundedRect(columnX - 18, 290, 110, 32, 6);
+      g.fillRoundedRect(columnX - 12, 1010, 98, 38, 6);
+      g.fillStyle(0xf4b356, 0.12);
+      g.fillCircle(columnX + 37, 540, 185);
     }
-    g.fillStyle(0xc49354, 0.2);
-    g.fillEllipse(w * 0.5, h * 0.72, w * 0.48, h * 0.045);
 
-    // Draw each authored object from its normalized hotspot definition.
+    // Long floor seams reinforce the depth of the wide chamber.
+    g.lineStyle(2, 0x8a6c48, 0.22);
+    for (let i = 1; i <= 8; i++) {
+      const lineY = floorTop + i * 68;
+      const inset = i * 58;
+      g.lineBetween(x + inset, lineY, x + width - inset, lineY);
+    }
+    for (let i = 0; i <= 12; i++) {
+      const floorX = x + i * (width / 12);
+      g.lineBetween(width / 2, floorTop, floorX, y + height);
+    }
+
     for (const hotspot of this.room.hotspots) {
-      const area = hotspot.area;
-      const bounds = {
-        x: area.x * w,
-        y: area.y * h,
-        width: area.width * w,
-        height: area.height * h,
-      };
       const artifact = this.add.graphics();
-      this.drawArtifact(artifact, hotspot.visual, bounds.width, bounds.height);
-      artifact.setPosition(bounds.x, bounds.y).setDepth(1);
+      this.drawArtifact(
+        artifact,
+        hotspot.visual,
+        hotspot.area.width,
+        hotspot.area.height,
+      );
+      artifact.setPosition(hotspot.area.x, hotspot.area.y).setDepth(2);
     }
   }
 
@@ -166,64 +203,54 @@ export class ChamberScene extends Phaser.Scene {
   ) {
     if (visual === 'vessel') {
       graphics.fillStyle(0x0b0907, 0.38);
-      graphics.fillEllipse(
-        width * 0.52,
-        height * 0.91,
-        width * 0.86,
-        height * 0.13,
-      );
+      graphics.fillEllipse(width * 0.52, height * 0.92, width * 0.9, 52);
       graphics.fillStyle(0x59432d, 1);
       graphics.fillPoints(
         [
-          { x: width * 0.31, y: height * 0.23 },
-          { x: width * 0.69, y: height * 0.23 },
-          { x: width * 0.78, y: height * 0.79 },
-          { x: width * 0.66, y: height * 0.9 },
-          { x: width * 0.34, y: height * 0.9 },
-          { x: width * 0.22, y: height * 0.79 },
+          { x: width * 0.27, y: height * 0.23 },
+          { x: width * 0.73, y: height * 0.23 },
+          { x: width * 0.82, y: height * 0.78 },
+          { x: width * 0.67, y: height * 0.9 },
+          { x: width * 0.33, y: height * 0.9 },
+          { x: width * 0.18, y: height * 0.78 },
         ],
         true,
       );
-      graphics.fillStyle(0x9a7548, 0.8);
+      graphics.fillStyle(0x9a7548, 0.85);
       graphics.fillRoundedRect(
-        width * 0.4,
-        height * 0.08,
-        width * 0.2,
-        height * 0.2,
-        3,
-      );
-      graphics.lineStyle(3, 0xb29260, 0.8);
-      graphics.strokeEllipse(
-        width * 0.5,
-        height * 0.25,
         width * 0.39,
-        height * 0.1,
+        height * 0.08,
+        width * 0.22,
+        height * 0.2,
+        5,
       );
-      graphics.lineStyle(2, 0x2b2016, 0.6);
+      graphics.lineStyle(5, 0xb29260, 0.88);
+      graphics.strokeEllipse(width * 0.5, height * 0.25, width * 0.43, 30);
+      graphics.lineStyle(3, 0x2b2016, 0.6);
       graphics.lineBetween(
-        width * 0.34,
+        width * 0.3,
         height * 0.57,
-        width * 0.68,
+        width * 0.7,
         height * 0.57,
       );
     } else {
-      graphics.fillStyle(0x443321, 0.88);
+      graphics.fillStyle(0x443321, 0.94);
       graphics.fillRoundedRect(
-        width * 0.1,
-        height * 0.08,
-        width * 0.8,
-        height * 0.84,
-        5,
+        width * 0.08,
+        height * 0.05,
+        width * 0.84,
+        height * 0.9,
+        12,
       );
-      graphics.lineStyle(4, 0xb3915e, 0.8);
+      graphics.lineStyle(7, 0xb3915e, 0.86);
       graphics.strokeRoundedRect(
-        width * 0.15,
-        height * 0.13,
-        width * 0.7,
-        height * 0.74,
-        3,
+        width * 0.14,
+        height * 0.11,
+        width * 0.72,
+        height * 0.78,
+        8,
       );
-      graphics.lineStyle(3, 0xd0b077, 0.82);
+      graphics.lineStyle(5, 0xd0b077, 0.88);
       const marks = [
         [0.37, 0.28, 0.37, 0.47],
         [0.59, 0.25, 0.69, 0.34],
@@ -234,11 +261,7 @@ export class ChamberScene extends Phaser.Scene {
       for (const [x1, y1, x2, y2] of marks) {
         graphics.lineBetween(width * x1, height * y1, width * x2, height * y2);
       }
-      graphics.strokeCircle(
-        width * 0.48,
-        height * 0.35,
-        Math.min(width, height) * 0.07,
-      );
+      graphics.strokeCircle(width * 0.48, height * 0.35, 38);
       graphics.strokeTriangle(
         width * 0.42,
         height * 0.55,
@@ -250,93 +273,260 @@ export class ChamberScene extends Phaser.Scene {
     }
   }
 
-  private addHotspot(hotspot: HotspotDefinition, w: number, h: number) {
-    const area = hotspot.area;
-    const x = area.x * w;
-    const y = area.y * h;
-    const width = area.width * w;
-    const height = area.height * h;
-    const cx = x + width / 2;
-    const cy = y + height / 2;
-    const outline = this.add.graphics().setDepth(3);
-    const drawOutline = (active: boolean) => {
-      outline.clear();
-      outline.fillStyle(0xd2a75e, active ? 0.14 : 0.035);
-      outline.lineStyle(
-        active ? 3 : 2,
-        active ? 0xffd88c : 0xe2c17d,
-        active ? 0.96 : 0.6,
-      );
-      outline.fillRoundedRect(x, y, width, height, Math.min(16, width * 0.08));
-      outline.strokeRoundedRect(
-        x,
-        y,
-        width,
-        height,
-        Math.min(16, width * 0.08),
-      );
-      outline.fillStyle(active ? 0xffd88c : 0xd9b06b, active ? 1 : 0.88);
-      outline.fillCircle(cx, y + 12, 4);
-    };
-    drawOutline(false);
+  private createHotspots() {
+    this.hotspotOutlines = new Map();
+    for (const hotspot of this.room.hotspots) {
+      const { x, y, width, height } = hotspot.area;
+      const outline = this.add.graphics().setDepth(4);
+      this.drawOutline(outline, hotspot, false);
+      this.hotspotOutlines.set(hotspot.id, outline);
 
-    const labelSize = Phaser.Math.Clamp(Math.min(w * 0.018, h * 0.03), 12, 17);
-    const caption = this.add
-      .text(cx, y + height + 7, hotspot.label, {
-        fontFamily: 'DM Sans, sans-serif',
-        fontSize: `${labelSize}px`,
-        color: '#fff0d2',
-        fontStyle: '600',
-        backgroundColor: '#21180feF',
-        padding: { x: 10, y: 7 },
+      this.add
+        .text(x + width / 2, y + height + 14, hotspot.label, {
+          fontFamily: 'DM Sans, sans-serif',
+          fontSize: '20px',
+          color: '#fff0d2',
+          fontStyle: '600',
+          backgroundColor: '#21180fef',
+          padding: { x: 12, y: 8 },
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(5);
+      this.add
+        .text(x + width / 2, y + height + 57, 'UNDERSÖK', {
+          fontFamily: 'DM Sans, sans-serif',
+          fontSize: '12px',
+          color: '#d9b06b',
+          letterSpacing: 1,
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(5);
+    }
+  }
+
+  private drawOutline(
+    graphics: Phaser.GameObjects.Graphics,
+    hotspot: HotspotDefinition,
+    active: boolean,
+  ) {
+    const { x, y, width, height } = hotspot.area;
+    graphics.clear();
+    graphics.fillStyle(0xd2a75e, active ? 0.18 : 0.055);
+    graphics.lineStyle(
+      active ? 4 : 3,
+      active ? 0xffd88c : 0xe2c17d,
+      active ? 1 : 0.74,
+    );
+    graphics.fillRoundedRect(x, y, width, height, 24);
+    graphics.strokeRoundedRect(x, y, width, height, 24);
+    graphics.fillStyle(active ? 0xffd88c : 0xd9b06b, 0.96);
+    graphics.fillCircle(x + width / 2, y + 15, 7);
+  }
+
+  private createUiLayer(w: number, h: number) {
+    const worldObjects = [...this.children.list];
+    const uiCamera = this.cameras.add(0, 0, w, h);
+    uiCamera.ignore(worldObjects);
+
+    const root = this.add.container(0, 0).setDepth(100);
+    this.uiRoot = root;
+    this.cameras.main.ignore(root);
+
+    const headerH = Math.max(58, Math.min(76, h * 0.09));
+    this.uiHeaderHeight = headerH;
+    const header = this.add.rectangle(
+      w / 2,
+      headerH / 2,
+      w,
+      headerH,
+      0x130f0b,
+      0.82,
+    );
+    const divider = this.add.graphics();
+    divider.lineStyle(1, 0xc39a5c, 0.52);
+    divider.lineBetween(0, headerH, w, headerH);
+    const titleSize = Phaser.Math.Clamp(Math.min(w * 0.024, h * 0.045), 13, 23);
+    const promptSize = Phaser.Math.Clamp(
+      Math.min(w * 0.016, h * 0.026),
+      10,
+      15,
+    );
+    const title = this.add
+      .text(22, headerH / 2, this.room.title.toLocaleUpperCase('sv-SE'), {
+        fontFamily: 'Cinzel, Georgia, serif',
+        fontSize: `${titleSize}px`,
+        color: '#f0dfbf',
+        letterSpacing: 2,
       })
-      .setOrigin(0.5, 0)
-      .setDepth(4);
-    const tapW = Math.min(w, Math.max(width, 116));
-    const tapH = Math.min(h, Math.max(height, 110));
-    const tapX = Phaser.Math.Clamp(cx, tapW / 2 + 8, w - tapW / 2 - 8);
-    const tapY = Phaser.Math.Clamp(cy, tapH / 2 + 8, h - tapH / 2 - 8);
-    const target = this.add
-      .rectangle(tapX, tapY, tapW, tapH, 0xffffff, 0.001)
-      .setDepth(5)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0, 0.5);
+    const prompt = this.add
+      .text(w - 22, headerH / 2, 'TRYCK PÅ ETT MARKERAT FÖREMÅL', {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: `${promptSize}px`,
+        color: '#f3dfbb',
+        letterSpacing: 0.5,
+      })
+      .setOrigin(1, 0.5);
 
-    target.on('pointerover', () => drawOutline(true));
-    target.on('pointerout', () => drawOutline(false));
-    target.on('pointerdown', () => {
-      drawOutline(true);
-      this.tweens.add({
-        targets: [outline, caption],
-        scaleX: 1.035,
-        scaleY: 1.035,
-        duration: 90,
-        yoyo: true,
-        onComplete: () => this.openFocus(hotspot),
-      });
+    root.add([header, divider, title, prompt]);
+
+    if (this.room.worldBounds.width > w + 24) {
+      const footerH = Math.max(42, Math.min(58, h * 0.07));
+      this.uiFooterHeight = footerH;
+      const footer = this.add.rectangle(
+        w / 2,
+        h - footerH / 2,
+        w,
+        footerH,
+        0x130f0b,
+        0.78,
+      );
+      const footerRule = this.add.graphics();
+      footerRule.lineStyle(1, 0xc39a5c, 0.36);
+      footerRule.lineBetween(0, h - footerH, w, h - footerH);
+      const instruction = this.add
+        .text(w / 2, h - footerH / 2, 'DRA ÅT SIDAN FÖR ATT UTFORSKA RUMMET', {
+          fontFamily: 'DM Sans, sans-serif',
+          fontSize: `${Phaser.Math.Clamp(Math.min(w * 0.022, h * 0.033), 12, 16)}px`,
+          color: '#d7bd91',
+          letterSpacing: 1,
+        })
+        .setOrigin(0.5);
+      root.add([footer, footerRule, instruction]);
+    } else {
+      this.uiFooterHeight = 0;
+    }
+  }
+
+  private onPointerDown(pointer: Phaser.Input.Pointer) {
+    if (
+      this.isFocused ||
+      !pointer.isDown ||
+      pointer.y <= this.uiHeaderHeight ||
+      pointer.y >= this.scale.height - this.uiFooterHeight
+    ) {
+      return;
+    }
+    this.pointerGesture = {
+      id: pointer.id,
+      startX: pointer.x,
+      startY: pointer.y,
+      startScrollX: this.cameras.main.scrollX,
+      moved: false,
+    };
+    this.updateHover(pointer);
+  }
+
+  private onPointerMove(pointer: Phaser.Input.Pointer) {
+    if (!this.pointerGesture || this.pointerGesture.id !== pointer.id) {
+      if (!this.isFocused && !pointer.isDown) this.updateHover(pointer);
+      return;
+    }
+    const deltaX = pointer.x - this.pointerGesture.startX;
+    const deltaY = pointer.y - this.pointerGesture.startY;
+    if (Math.hypot(deltaX, deltaY) >= TAP_SWIPE_THRESHOLD) {
+      this.pointerGesture.moved = true;
+    }
+    if (this.pointerGesture.moved && Math.abs(deltaX) > Math.abs(deltaY)) {
+      this.input.setDefaultCursor('grabbing');
+      this.setCameraScrollX(
+        this.pointerGesture.startScrollX - deltaX / this.cameras.main.zoom,
+      );
+    }
+  }
+
+  private onPointerUp(pointer: Phaser.Input.Pointer) {
+    const gesture = this.pointerGesture;
+    if (!gesture || gesture.id !== pointer.id) return;
+    this.pointerGesture = undefined;
+    this.input.setDefaultCursor('default');
+
+    if (gesture.moved || this.isFocused) return;
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const hotspot = this.room.hotspots.find(({ area }) =>
+      Phaser.Geom.Rectangle.Contains(
+        new Phaser.Geom.Rectangle(area.x, area.y, area.width, area.height),
+        worldPoint.x,
+        worldPoint.y,
+      ),
+    );
+    if (hotspot) this.pulseAndFocus(hotspot);
+  }
+
+  private onPointerUpOutside(pointer: Phaser.Input.Pointer) {
+    if (this.pointerGesture?.id !== pointer.id) return;
+    this.pointerGesture = undefined;
+    this.input.setDefaultCursor('default');
+  }
+
+  private updateHover(pointer: Phaser.Input.Pointer) {
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const hotspot = this.room.hotspots.find(
+      ({ area }) =>
+        worldPoint.x >= area.x &&
+        worldPoint.x <= area.x + area.width &&
+        worldPoint.y >= area.y &&
+        worldPoint.y <= area.y + area.height,
+    );
+    if (hotspot?.id === this.hoveredHotspotId) return;
+    this.hoveredHotspotId = hotspot?.id;
+    for (const candidate of this.room.hotspots) {
+      const outline = this.hotspotOutlines.get(candidate.id);
+      if (outline)
+        this.drawOutline(outline, candidate, candidate.id === hotspot?.id);
+    }
+  }
+
+  private pulseAndFocus(hotspot: HotspotDefinition) {
+    const outline = this.hotspotOutlines.get(hotspot.id);
+    if (outline) this.drawOutline(outline, hotspot, true);
+    if (!outline) {
+      this.openFocus(hotspot);
+      return;
+    }
+    this.tweens.add({
+      targets: outline,
+      scaleX: 1.035,
+      scaleY: 1.035,
+      duration: 90,
+      yoyo: true,
+      onComplete: () => this.openFocus(hotspot),
     });
   }
 
-  private openFocus(hotspot: HotspotDefinition) {
+  private openFocus(hotspot: HotspotDefinition, restoreState = false) {
     if (this.isFocused) return;
     this.isFocused = true;
     this.focusedHotspot = hotspot;
-    const w = this.scale.width;
-    const h = this.scale.height;
+    if (!restoreState || !this.cameraBeforeFocus) {
+      const camera = this.cameras.main;
+      this.cameraBeforeFocus = {
+        scrollX: camera.scrollX,
+        scrollY: camera.scrollY,
+        zoom: camera.zoom,
+        centerX: camera.midPoint.x,
+        centerY: camera.midPoint.y,
+      };
+    }
+
     this.cameras.main.pan(
-      hotspot.focus.x * w,
-      hotspot.focus.y * h,
-      360,
+      hotspot.focus.x,
+      hotspot.focus.y,
+      FOCUS_DURATION,
       'Sine.easeInOut',
     );
-    this.cameras.main.zoomTo(1.32, 360, 'Sine.easeInOut');
-    this.time.delayedCall(360, () => this.showFocusPanel(hotspot, w, h));
+    this.cameras.main.zoomTo(
+      hotspot.focus.zoom,
+      FOCUS_DURATION,
+      'Sine.easeInOut',
+    );
+    this.time.delayedCall(FOCUS_DURATION, () => {
+      this.showFocusPanel(hotspot, this.scale.width, this.scale.height);
+    });
   }
 
   private showFocusPanel(hotspot: HotspotDefinition, w: number, h: number) {
-    if (!this.isFocused) return;
-    const focusCamera = this.cameras.add(0, 0, w, h);
-    focusCamera.ignore(this.children.list);
-    this.focusCamera = focusCamera;
+    if (!this.isFocused || !this.uiRoot) return;
     const panelW = Math.min(w - 28, 760);
     const panelH = Math.min(h - 28, 500);
     const panelX = (w - panelW) / 2;
@@ -347,15 +537,13 @@ export class ChamberScene extends Phaser.Scene {
     const artH = Math.min(panelH * 0.25, artW * 1.08);
 
     const shade = this.add
-      .rectangle(0, 0, w, h, 0x100c08, 0.78)
+      .rectangle(0, 0, w, h, 0x100c08, 0.8)
       .setOrigin(0)
-      .setDepth(10)
       .setInteractive();
     const card = this.add
       .rectangle(w / 2, h / 2, panelW, panelH, 0x2b2117)
-      .setStrokeStyle(2, 0xb18a50)
-      .setDepth(11);
-    const rule = this.add.graphics().setDepth(12);
+      .setStrokeStyle(2, 0xb18a50);
+    const rule = this.add.graphics();
     rule.lineStyle(1, 0xc69b5d, 0.46);
     rule.lineBetween(
       panelX + panelW * 0.12,
@@ -369,7 +557,6 @@ export class ChamberScene extends Phaser.Scene {
       panelX + panelW * 0.88,
       panelY + panelH * 0.69,
     );
-
     const title = this.add
       .text(w / 2, panelY + panelH * 0.1, hotspot.label, {
         fontFamily: 'Cinzel, Georgia, serif',
@@ -378,9 +565,8 @@ export class ChamberScene extends Phaser.Scene {
         align: 'center',
         wordWrap: { width: panelW - 40 },
       })
-      .setOrigin(0.5)
-      .setDepth(12);
-    const art = this.add.graphics().setDepth(12);
+      .setOrigin(0.5);
+    const art = this.add.graphics();
     this.drawArtifact(art, hotspot.visual, artW, artH);
     art.setPosition(w / 2 - artW / 2, panelY + panelH * 0.22);
     const description = this.add
@@ -392,8 +578,7 @@ export class ChamberScene extends Phaser.Scene {
         wordWrap: { width: panelW * 0.78 },
         lineSpacing: 5,
       })
-      .setOrigin(0.5)
-      .setDepth(12);
+      .setOrigin(0.5);
 
     const buttonW = Math.min(panelW - 36, 300);
     const buttonH = Math.min(68, Math.max(54, panelH * 0.15));
@@ -401,7 +586,6 @@ export class ChamberScene extends Phaser.Scene {
     const back = this.add
       .rectangle(w / 2, buttonY, buttonW, buttonH, 0xc49a5b)
       .setStrokeStyle(2, 0xe7ca92, 0.9)
-      .setDepth(12)
       .setInteractive({ useHandCursor: true });
     const backLabel = this.add
       .text(w / 2, buttonY, '←  TILL KAMMAREN', {
@@ -412,7 +596,6 @@ export class ChamberScene extends Phaser.Scene {
         letterSpacing: 0.4,
       })
       .setOrigin(0.5)
-      .setDepth(13)
       .setInteractive({ useHandCursor: true });
     const onBackOver = () => back.setFillStyle(0xe0bb77);
     const onBackOut = () => back.setFillStyle(0xc49a5b);
@@ -423,20 +606,18 @@ export class ChamberScene extends Phaser.Scene {
     back.on('pointerdown', () => this.closeFocus());
     backLabel.on('pointerdown', () => this.closeFocus());
 
-    const panel = this.add
-      .container(0, 0, [
-        shade,
-        card,
-        rule,
-        title,
-        art,
-        description,
-        back,
-        backLabel,
-      ])
-      .setDepth(10);
+    const panel = this.add.container(0, 0, [
+      shade,
+      card,
+      rule,
+      title,
+      art,
+      description,
+      back,
+      backLabel,
+    ]);
     this.focusPanel = panel;
-    this.cameras.main.ignore(panel);
+    this.uiRoot.add(panel);
     panel.setAlpha(0);
     this.tweens.add({
       targets: panel,
@@ -452,20 +633,47 @@ export class ChamberScene extends Phaser.Scene {
     this.focusedHotspot = undefined;
     this.focusPanel?.destroy();
     this.focusPanel = undefined;
-    if (this.focusCamera) {
-      this.cameras.remove(this.focusCamera);
-      this.focusCamera = undefined;
+
+    const previous = this.cameraBeforeFocus;
+    this.cameraBeforeFocus = undefined;
+    if (previous) {
+      this.cameras.main.pan(
+        previous.centerX,
+        previous.centerY,
+        RETURN_DURATION,
+        'Sine.easeInOut',
+      );
+      this.cameras.main.zoomTo(
+        previous.zoom,
+        RETURN_DURATION,
+        'Sine.easeInOut',
+      );
     }
-    this.cameras.main.pan(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      300,
-      'Sine.easeInOut',
-    );
-    this.cameras.main.zoomTo(1, 300, 'Sine.easeInOut');
+  }
+
+  private setCameraScrollX(scrollX: number) {
+    const { x, width } = this.room.worldBounds;
+    const viewWidth = this.cameras.main.width / this.cameras.main.zoom;
+    const maxScrollX = Math.max(x, x + width - viewWidth);
+    this.cameras.main.setScroll(Phaser.Math.Clamp(scrollX, x, maxScrollX));
+  }
+
+  private onKeyboard(event: string, handler: () => void) {
+    this.input.keyboard?.on(event, handler);
+    this.keyboardHandlers.push({ event, handler });
   }
 
   private handleResize() {
-    this.scene.restart({ focusedHotspotId: this.focusedHotspot?.id });
+    const data: SceneData = {
+      scrollX: this.isFocused
+        ? this.cameraBeforeFocus?.scrollX
+        : this.cameras.main.scrollX,
+      scrollY: this.isFocused
+        ? this.cameraBeforeFocus?.scrollY
+        : this.cameras.main.scrollY,
+      focusedHotspotId: this.focusedHotspot?.id,
+      cameraBeforeFocus: this.cameraBeforeFocus,
+    };
+    this.scene.restart(data);
   }
 }

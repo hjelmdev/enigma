@@ -22,13 +22,14 @@ The frame should feel intriguing at first glance yet have clear, tappable points
 - Leave visual space for UI and interaction labels; important hotspots must be distinguishable.
 - Different vantage points are welcome. Room art need not share one rigid angle.
 - Some panoramic/oversized chamber scenes may pan or swipe on mobile.
-- Prefer landscape-friendly composition but account for mobile safe areas and accessibility.
+- Compose rooms so their focal objects remain legible in both portrait and landscape views. Pan across wide scenes on smaller screens instead of shrinking the room to fit.
 
 ## Production principle: backgrounds are not the mechanics
 
 AI-generated backgrounds are appropriate for early concepts and finished art **after approval**. Do **not** rely on generated imagery for mechanically exact puzzle symbols, readable text, numeric markings or precise hit geometry.
 
 Instead:
+
 1. Author the scene background or layered concept art.
 2. Define interactive objects and coordinates separately in structured data.
 3. Render mechanically exact symbols, numbers, puzzle pieces and UI via Phaser/SVG/HTML.

@@ -1,10 +1,12 @@
 import type { RoomDefinition } from './types';
 
-// Placeholder scene content. Coordinates use the 1280 × 720 reference canvas.
+// Room and hotspot positions share one authored world space. The camera window
+// changes with the device; object scale and world coordinates do not.
 export const rooms: Record<string, RoomDefinition> = {
   entrance: {
     id: 'entrance',
     title: 'Förkammaren',
+    worldBounds: { x: 0, y: 0, width: 3000, height: 1600 },
     background: { top: 0x36291d, bottom: 0x16120f, wall: 0x796044 },
     exits: [],
     hotspots: [
@@ -14,8 +16,8 @@ export const rooms: Record<string, RoomDefinition> = {
         description:
           'Ett tungt kärl av mörk sten. Damm ligger kvar längs kanten.',
         visual: 'vessel',
-        area: { x: 0.17, y: 0.48, width: 0.2, height: 0.35 },
-        focus: { x: 0.27, y: 0.63, zoom: 2.1 },
+        area: { x: 700, y: 650, width: 300, height: 380 },
+        focus: { x: 850, y: 840, zoom: 1.3 },
       },
       {
         id: 'wall-carving',
@@ -23,8 +25,8 @@ export const rooms: Record<string, RoomDefinition> = {
         description:
           'En sliten relief fångar det varma ljuset. Tecknen är ännu svåra att urskilja.',
         visual: 'relief',
-        area: { x: 0.67, y: 0.27, width: 0.2, height: 0.35 },
-        focus: { x: 0.77, y: 0.45, zoom: 2.25 },
+        area: { x: 1980, y: 460, width: 340, height: 490 },
+        focus: { x: 2150, y: 700, zoom: 1.3 },
       },
     ],
   },

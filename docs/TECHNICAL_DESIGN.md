@@ -52,7 +52,14 @@ interface RoomDefinition {
   id: RoomId;
   title: string;
   backgroundAssetId: string;
-  mapGeometry: { floor: number; x: number; y: number; width: number; height: number };
+  worldBounds: { x: number; y: number; width: number; height: number };
+  mapGeometry: {
+    floor: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   exits: ExitDefinition[];
   hotspots: HotspotDefinition[];
 }
@@ -68,9 +75,10 @@ interface ExitDefinition {
 
 interface HotspotDefinition {
   id: string;
-  kind: "inspect" | "puzzle" | "secret" | "exit";
-  // Coordinates normalized against the authored image reference size.
+  kind: 'inspect' | 'puzzle' | 'secret' | 'exit';
+  // Authored world-space geometry, independent of viewport dimensions.
   area: { x: number; y: number; width: number; height: number };
+  focus: { x: number; y: number; zoom: number };
   targetId?: string;
 }
 ```
@@ -91,7 +99,7 @@ interface SaveGameV1 {
   solvedPuzzleIds: PuzzleId[];
   puzzleStates: Record<PuzzleId, unknown>;
   collectedSecretIds: string[];
-  difficulty: "explorer" | "thinker";
+  difficulty: 'explorer' | 'thinker';
   savedAt: string;
 }
 ```
@@ -101,6 +109,7 @@ This is an illustrative starting point. Keep puzzle state JSON-safe and validate
 ## Puzzle interface
 
 Each puzzle should supply:
+
 - configuration and deterministic initial state;
 - typed commands or actions;
 - pure validation / state transition logic where possible;
@@ -113,10 +122,15 @@ Prefer puzzle logic tested without Phaser. Keep UI input and animations outside 
 
 ## Scenes, scaling and controls
 
-- Start with a reference landscape aspect ratio around **16:9** but support varying browser sizes and safe areas.
-- Maintain correct hotspot alignment when images scale or pan: normalized coordinates and shared transforms.
+- Support desktop and mobile in **portrait and landscape**. Do not require device rotation.
+- Author each room in one shared world coordinate system with explicit world bounds. Hotspot areas and focus points use world coordinates and stay fixed as the viewport changes.
+- Use a pan-able 2D camera whose viewport follows the available screen size while the authored room keeps its scale. Wide screens see more of the room; narrow portrait screens see a narrower slice of the same room.
+- Constrain camera movement to the room's world bounds. Keep vertical framing stable and pan horizontally when the room exceeds the viewport.
+- Distinguish a tap from a swipe with a clear screen-space movement threshold. A swipe pans horizontally and must not activate a hotspot; a tap resolves against hotspot geometry in world space.
+- Keep navigation hints, inspection controls and other interface elements in a separate screen-space layer. They must not move with the room camera.
 - Touch hotspots need comfortable tap targets without overlapping wrong actions.
-- Focus interaction: select object → short camera move/zoom/fade → close-up puzzle/inspection → return to room.
+- Focus interaction: save camera position → move/zoom to the selected world-space focus point → show a screen-bound close-up with an always-visible return control → restore the prior camera position.
+- The game canvas and its parent fill the browser viewport, including mobile safe areas, without document scrollbars or uncovered space outside the game area.
 - Keyboard navigation or accessible HTML control alternatives for important actions.
 - Do not bake critical text or exact gameplay symbols into AI-generated scene art; use overlays.
 
@@ -129,7 +143,7 @@ The map reads only **discovery state** plus authored geometry. Unknown rooms/cor
 - Pure tests for each puzzle's legal moves, win detection, reset and guaranteed solvability.
 - World graph validation: unique IDs, valid destinations, reachable initial path, intentional gates.
 - Save round-trip and corrupt/outdated data handling.
-- Browser interaction smoke tests: mouse and touch; room return; zoom target alignment.
+- Browser interaction smoke tests at desktop and portrait/landscape mobile sizes: horizontal pan bounds, tap/swipe threshold, hotspot alignment after panning, focus from different camera positions, screen-bound UI and room return.
 - Production build and GitHub Pages base path sanity checks for `/enigma/`.
 
 ## Future-facing but not MVP

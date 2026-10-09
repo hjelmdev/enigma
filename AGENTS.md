@@ -10,7 +10,7 @@ Implement the game and its developer tooling incrementally. The human and ChatGP
 
 - Use **TypeScript, Phaser, Vite**; target a static GitHub Pages deployment.
 - Favor simple, maintainable modules and data-driven scene/puzzle definitions. Avoid a large framework or backend without approval.
-- Prioritize desktop browser **and** mobile touch; mobile landscape is the starting target, not an excuse for inaccessible controls or cropped interfaces.
+- Support desktop and mobile touch in both portrait and landscape orientations. Use a shared world coordinate system and a bounded 2D camera; do not require rotation or squash authored rooms to fit the viewport.
 - HTML/CSS/SVG overlays are acceptable when better than Phaser for UI or puzzle widgets.
 - The MVP is single-player, offline/local-first, with save data in IndexedDB. Design for potential future migration; do not build auth, a server, analytics, multiplayer or monetization now.
 - Generated concept art may not exist yet. Use clearly labeled placeholder assets and clean asset boundaries rather than blocking development.

@@ -16,7 +16,7 @@
 
 - [x] Scaffold Phaser + TypeScript + Vite with scripts for dev, test, typecheck, build.
 - [x] Configure GitHub Pages build/deployment using the correct base path.
-- [x] Display a placeholder exploration chamber at desktop and mobile landscape sizes.
+- [x] Display a placeholder exploration chamber at desktop and mobile portrait and landscape sizes.
 - [x] Implement taps/clicks on authored hotspots.
 - [x] Implement inspect/zoom/focus transition to a close-up and back.
 - [x] Implement data-driven room definitions and graph-ready hotspot content.
