@@ -2,6 +2,7 @@ export interface HotspotDefinition {
   id: string;
   label: string;
   description: string;
+  visual: 'vessel' | 'relief';
   area: { x: number; y: number; width: number; height: number };
   focus: { x: number; y: number; zoom: number };
 }

@@ -13,6 +13,7 @@ export const rooms: Record<string, RoomDefinition> = {
         label: 'Stenkärlet',
         description:
           'Ett tungt kärl av mörk sten. Damm ligger kvar längs kanten.',
+        visual: 'vessel',
         area: { x: 0.17, y: 0.48, width: 0.2, height: 0.35 },
         focus: { x: 0.27, y: 0.63, zoom: 2.1 },
       },
@@ -21,6 +22,7 @@ export const rooms: Record<string, RoomDefinition> = {
         label: 'Väggreliefen',
         description:
           'En sliten relief fångar det varma ljuset. Tecknen är ännu svåra att urskilja.',
+        visual: 'relief',
         area: { x: 0.67, y: 0.27, width: 0.2, height: 0.35 },
         focus: { x: 0.77, y: 0.45, zoom: 2.25 },
       },
