@@ -150,6 +150,27 @@ export class MenuScene extends Phaser.Scene {
     label.on('pointerdown', start);
     this.input.keyboard?.on('keydown-ENTER', start);
 
+    const labY = Math.min(h - buttonH / 2 - 12, buttonY - buttonH - 12);
+    const labButton = this.add
+      .rectangle(cx, labY, buttonW, buttonH, 0x30251a)
+      .setStrokeStyle(1, 0xb18a50, 0.8)
+      .setInteractive({ useHandCursor: true });
+    const labLabel = this.add
+      .text(cx, labY, 'VISUAL LAB  ·  JÄMFÖR GRAFIKSTILAR', {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: `${Phaser.Math.Clamp(w * 0.015, 12, 15)}px`,
+        color: '#ead4ac',
+        fontStyle: 'bold',
+        letterSpacing: 0.5,
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    const openLab = () => this.scene.start('visual-lab', { mode: 'styles' });
+    labButton.on('pointerover', () => labButton.setFillStyle(0x55402a));
+    labButton.on('pointerout', () => labButton.setFillStyle(0x30251a));
+    labButton.on('pointerup', openLab);
+    labLabel.on('pointerup', openLab);
+
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);

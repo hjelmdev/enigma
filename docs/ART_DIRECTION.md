@@ -68,6 +68,16 @@ Working wordmark: **ENIGMA**, potentially with the letter **A** treated as a pyr
 - Compress and size assets reasonably; verify load times on mobile.
 - Gameplay should still work when art assets are replaced.
 
+## Visual Lab experiment
+
+The main adventure's approved direction remains illustrated realism. A separate
+Visual Lab compares Classic and HD pixel-art treatments of one identical
+chamber as a visual study, plus an empty illustrated integration slot. This
+experiment does not change the main adventure art direction. Its palettes,
+compositions, layer boundaries, generator and placeholders are documented in
+`docs/VISUAL_LAB.md`; the generated pixel PNGs are exploratory, not final
+production assets.
+
 ## Immediate art needs
 
 For the vertical slice: one entrance illustration, at least two visually distinct puzzle chambers, a secret alcove concept, a pair of close-up mechanisms, and a simple map style guide. **Code may use placeholders first.** Final art is not a prerequisite for implementing the scene system.

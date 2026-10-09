@@ -60,6 +60,18 @@ layer, and independently animated stone leaves. A solved exit plays the shared
 open sequence; revisiting a room derives the initial `open` state from session
 progress. Unlock state and door art remain separate from hotspot rendering.
 
+The optional Visual Lab is an isolated Phaser scene and does not mutate the
+adventure session. It selects a style-specific `RoomArtPack` over the shared
+`SEALED_SUN_ROOM` geometry and uses pure Sun Seal puzzle rules. A pack may supply
+background, corridor reveal, frame, separate door leaves and object layers;
+screen-fixed lab controls use a camera-fixed container. The deterministic Node
+generator in `tools/generate-visual-lab-art.mjs` emits Classic and HD PNG layers
+to `public/assets/visual-lab`. HD is authored at twice the raster dimensions and
+nearest-scaled back to the same world bounds. An illustrated pack can later
+provide approved art at those same layer boundaries without changing hotspots,
+puzzle rules or door transitions. See `docs/VISUAL_LAB.md` for regeneration and
+asset replacement details.
+
 ## Data-driven world
 
 Use stable content IDs. Suggested conceptual models:
