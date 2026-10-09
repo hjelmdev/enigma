@@ -14,13 +14,13 @@
 
 ## Phase 1 — Playable technical skeleton
 
-- [ ] Scaffold Phaser + TypeScript + Vite with scripts for dev, test, typecheck, build.
-- [ ] Configure GitHub Pages build/deployment using the correct base path.
-- [ ] Display a placeholder exploration chamber at desktop and mobile landscape sizes.
-- [ ] Implement taps/clicks on authored hotspots.
-- [ ] Implement inspect/zoom/focus transition to a close-up and back.
-- [ ] Implement data-driven room definitions and graph navigation.
-- [ ] Handle safe scaling of hotspots and basic accessible controls.
+- [x] Scaffold Phaser + TypeScript + Vite with scripts for dev, test, typecheck, build.
+- [x] Configure GitHub Pages build/deployment using the correct base path.
+- [x] Display a placeholder exploration chamber at desktop and mobile landscape sizes.
+- [x] Implement taps/clicks on authored hotspots.
+- [x] Implement inspect/zoom/focus transition to a close-up and back.
+- [x] Implement data-driven room definitions and graph-ready hotspot content.
+- [x] Handle safe scaling of hotspots and basic accessible controls.
 
 **Done when:** the user can explore and inspect a small prototype in a browser and on mobile.
 
