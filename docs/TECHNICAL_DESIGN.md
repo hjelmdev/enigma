@@ -136,7 +136,8 @@ Prefer puzzle logic tested without Phaser. Keep UI input and animations outside 
 - Author each room in one shared world coordinate system with explicit world bounds. Hotspot areas and focus points use world coordinates and stay fixed as the viewport changes.
 - Use a pan-able 2D camera whose viewport follows the available screen size while the authored room keeps its scale. Wide screens see more of the room; narrow portrait screens see a narrower slice of the same room.
 - Constrain camera movement to the room's world bounds. Keep vertical framing stable and pan horizontally when the room exceeds the viewport.
-- Distinguish a tap from a swipe with a clear screen-space movement threshold. A swipe pans horizontally and must not activate a hotspot; a tap resolves against hotspot geometry in world space.
+- Distinguish a tap from a swipe with a 14 px screen-space threshold and lock the gesture direction once crossed. Horizontal and moderately diagonal swipes pan the room; vertical gestures do not activate hotspots. A gesture may start anywhere over the game, including the header and footer; taps in those UI bands remain UI-only.
+- Show screen-bound left/right cues only while more room can be explored in that direction. Start each new room at its left edge as a stable orientation reference. Clamp the camera using the visible world width at its current zoom.
 - Keep navigation hints, inspection controls and other interface elements in a separate screen-space layer. They must not move with the room camera.
 - Touch hotspots need comfortable tap targets without overlapping wrong actions.
 - Focus interaction: save camera position → move/zoom to the selected world-space focus point → show a screen-bound close-up with an always-visible return control → restore the prior camera position.

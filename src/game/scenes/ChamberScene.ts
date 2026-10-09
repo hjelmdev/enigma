@@ -4,13 +4,18 @@ import { drawChamber, animateDoorOpen } from './RoomArt';
 import { session, solvePuzzle, visitRoom } from '../state/session';
 import { createPuzzlePanel } from '../ui/PuzzlePanel';
 import { createPyramidMap } from '../ui/PyramidMap';
+import {
+  clampCameraScrollX,
+  getHorizontalPanAvailability,
+  isHorizontalSwipe,
+  TAP_SWIPE_THRESHOLD,
+} from '../navigation/cameraPan';
 import type {
   HotspotDefinition,
   PuzzleId,
   RoomDefinition,
 } from '../world/types';
 
-const TAP_SWIPE_THRESHOLD = 12;
 const FOCUS_DURATION = 360;
 const RETURN_DURATION = 300;
 
@@ -36,6 +41,8 @@ interface PointerGesture {
   startY: number;
   startScrollX: number;
   moved: boolean;
+  tapAllowed: boolean;
+  horizontal: boolean;
 }
 
 export class ChamberScene extends Phaser.Scene {
@@ -55,9 +62,15 @@ export class ChamberScene extends Phaser.Scene {
   private doorLeaves = new Map<string, Phaser.GameObjects.Graphics[]>();
   private narrative?: Phaser.GameObjects.Text;
   private roomId = 'entrance';
+  private panLeftCue?: Phaser.GameObjects.Text;
+  private panRightCue?: Phaser.GameObjects.Text;
 
   constructor() {
     super('chamber');
+  }
+
+  update() {
+    this.updatePanCues();
   }
 
   create(data: SceneData = {}) {
@@ -88,7 +101,8 @@ export class ChamberScene extends Phaser.Scene {
     camera.setZoom(1);
     const maxScrollX = Math.max(x, x + width - viewWidth);
     const maxScrollY = Math.max(y, y + height - viewHeight);
-    const defaultScrollX = x + width * 0.54 - viewWidth / 2;
+    // Start at the room's left edge so the player has a reliable point of reference.
+    const defaultScrollX = x;
     const defaultScrollY = y + (height - viewHeight) / 2;
     camera.setScroll(
       Phaser.Math.Clamp(data.scrollX ?? defaultScrollX, x, maxScrollX),
@@ -96,6 +110,7 @@ export class ChamberScene extends Phaser.Scene {
     );
 
     this.createUiLayer(viewWidth, viewHeight);
+    this.updatePanCues();
     this.onKeyboard('keydown-ESC', () => {
       if (this.modal) {
         this.modal.destroy();
@@ -327,16 +342,32 @@ export class ChamberScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
     root.add([footer, footerRule, this.narrative, instruction]);
+
+    // These screen-bound arrows make the wide room's horizontal extent visible.
+    const cueY = headerH + (h - headerH - footerH) / 2;
+    this.panLeftCue = this.add
+      .text(12, cueY, '‹', {
+        fontFamily: 'Georgia, serif',
+        fontSize: `${Phaser.Math.Clamp(h * 0.065, 34, 52)}px`,
+        color: '#f0cd91',
+        backgroundColor: '#130f0b99',
+        padding: { left: 5, right: 5, top: 0, bottom: 4 },
+      })
+      .setOrigin(0, 0.5);
+    this.panRightCue = this.add
+      .text(w - 12, cueY, '›', {
+        fontFamily: 'Georgia, serif',
+        fontSize: `${Phaser.Math.Clamp(h * 0.065, 34, 52)}px`,
+        color: '#f0cd91',
+        backgroundColor: '#130f0b99',
+        padding: { left: 5, right: 5, top: 0, bottom: 4 },
+      })
+      .setOrigin(1, 0.5);
+    root.add([this.panLeftCue, this.panRightCue]);
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer) {
-    if (
-      this.modal ||
-      this.isFocused ||
-      !pointer.isDown ||
-      pointer.y <= this.uiHeaderHeight ||
-      pointer.y >= this.scale.height - this.uiFooterHeight
-    ) {
+    if (this.modal || this.isFocused || !pointer.isDown) {
       return;
     }
     this.pointerGesture = {
@@ -345,8 +376,12 @@ export class ChamberScene extends Phaser.Scene {
       startY: pointer.y,
       startScrollX: this.cameras.main.scrollX,
       moved: false,
+      tapAllowed:
+        pointer.y > this.uiHeaderHeight &&
+        pointer.y < this.scale.height - this.uiFooterHeight,
+      horizontal: false,
     };
-    this.updateHover(pointer);
+    if (this.pointerGesture.tapAllowed) this.updateHover(pointer);
   }
 
   private onPointerMove(pointer: Phaser.Input.Pointer) {
@@ -357,10 +392,14 @@ export class ChamberScene extends Phaser.Scene {
     }
     const deltaX = pointer.x - this.pointerGesture.startX;
     const deltaY = pointer.y - this.pointerGesture.startY;
-    if (Math.hypot(deltaX, deltaY) >= TAP_SWIPE_THRESHOLD) {
+    if (
+      !this.pointerGesture.moved &&
+      Math.hypot(deltaX, deltaY) >= TAP_SWIPE_THRESHOLD
+    ) {
       this.pointerGesture.moved = true;
+      this.pointerGesture.horizontal = isHorizontalSwipe(deltaX, deltaY);
     }
-    if (this.pointerGesture.moved && Math.abs(deltaX) > Math.abs(deltaY)) {
+    if (this.pointerGesture.moved && this.pointerGesture.horizontal) {
       this.input.setDefaultCursor('grabbing');
       this.setCameraScrollX(
         this.pointerGesture.startScrollX - deltaX / this.cameras.main.zoom,
@@ -378,7 +417,7 @@ export class ChamberScene extends Phaser.Scene {
     this.pointerGesture = undefined;
     this.input.setDefaultCursor('default');
 
-    if (gesture.moved || this.isFocused) return;
+    if (gesture.moved || !gesture.tapAllowed || this.isFocused) return;
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const hotspot = this.room.hotspots.find(({ area }) =>
       Phaser.Geom.Rectangle.Contains(
@@ -751,12 +790,28 @@ export class ChamberScene extends Phaser.Scene {
 
   private setCameraScrollX(scrollX: number) {
     const { x, width } = this.room.worldBounds;
-    const viewWidth = this.cameras.main.width / this.cameras.main.zoom;
-    const maxScrollX = Math.max(x, x + width - viewWidth);
     this.cameras.main.setScroll(
-      Phaser.Math.Clamp(scrollX, x, maxScrollX),
+      clampCameraScrollX(
+        scrollX,
+        { x, width },
+        this.cameras.main.width,
+        this.cameras.main.zoom,
+      ),
       this.cameras.main.scrollY,
     );
+    this.updatePanCues();
+  }
+
+  private updatePanCues() {
+    if (!this.panLeftCue || !this.panRightCue) return;
+    const availability = getHorizontalPanAvailability(
+      this.cameras.main.scrollX,
+      this.room.worldBounds,
+      this.cameras.main.width,
+      this.cameras.main.zoom,
+    );
+    this.panLeftCue.setVisible(availability.left);
+    this.panRightCue.setVisible(availability.right);
   }
 
   private onKeyboard(event: string, handler: () => void) {
