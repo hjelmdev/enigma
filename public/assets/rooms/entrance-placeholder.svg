@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="1600" viewBox="0 0 3000 1600" role="img" aria-label="Stylized placeholder for a torchlit stone pyramid chamber">
+  <defs>
+    <linearGradient id="ceiling" x2="0" y2="1">
+      <stop stop-color="#21170f" />
+      <stop offset="1" stop-color="#51402b" />
+    </linearGradient>
+    <linearGradient id="wall" x2="0" y2="1">
+      <stop stop-color="#9a7b50" />
+      <stop offset=".48" stop-color="#79603d" />
+      <stop offset="1" stop-color="#463522" />
+    </linearGradient>
+    <linearGradient id="floor" x2="0" y2="1">
+      <stop stop-color="#503d28" />
+      <stop offset="1" stop-color="#17110c" />
+    </linearGradient>
+    <linearGradient id="stoneFace" x2="1" y2="0">
+      <stop stop-color="#402f1e" />
+      <stop offset=".18" stop-color="#9a7849" />
+      <stop offset=".72" stop-color="#765a36" />
+      <stop offset="1" stop-color="#332619" />
+    </linearGradient>
+    <radialGradient id="torchGlow">
+      <stop stop-color="#f4c875" stop-opacity=".31" />
+      <stop offset="1" stop-color="#e6a64d" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="centerGlow">
+      <stop stop-color="#d4a45e" stop-opacity=".18" />
+      <stop offset="1" stop-color="#d4a45e" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="blocks" width="520" height="176" patternUnits="userSpaceOnUse">
+      <path d="M0 1H520M260 1V88M0 88H520M130 88V176M390 88V176" fill="none" stroke="#231a12" stroke-opacity=".38" stroke-width="5" />
+      <path d="M3 5H516M263 5V84M3 92H516" fill="none" stroke="#d7b47a" stroke-opacity=".12" stroke-width="2" />
+      <path d="M29 19h156M289 18h192M38 106h72M165 104h178M414 106h74" fill="none" stroke="#c3a16d" stroke-opacity=".08" stroke-width="3" />
+    </pattern>
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="46" />
+    </filter>
+    <g id="pillar">
+      <ellipse cx="12" cy="1028" rx="150" ry="40" fill="#0b0806" opacity=".48" />
+      <path d="M-94 320H76L120 1007H-132Z" fill="#2d2116" />
+      <path d="M-61 352H53L84 984H-93Z" fill="url(#stoneFace)" />
+      <path d="M-48 365H-22L-42 971H-75Z" fill="#c8a574" opacity=".42" />
+      <path d="M32 360L63 980" stroke="#251a11" stroke-width="12" opacity=".66" />
+      <path d="M-87 450h174M-82 558h178M-77 667h183M-72 775h188M-66 883h194" stroke="#352719" stroke-width="7" opacity=".8" />
+      <path d="M-152 300h284l-42 63h-204Z" fill="#342619" />
+      <path d="M-166 282h312v25h-312Z" fill="#b28b55" />
+      <path d="M-112 990h224v47h-224Z" fill="#745735" />
+      <path d="M-144 1036h288v20h-288Z" fill="#b28b55" />
+      <g fill="#49351f" stroke="#d0ad76" stroke-opacity=".65" stroke-width="3">
+        <ellipse cx="-79" cy="332" rx="21" ry="37" />
+        <ellipse cx="-40" cy="332" rx="21" ry="42" />
+        <ellipse cx="0" cy="332" rx="21" ry="48" />
+        <ellipse cx="40" cy="332" rx="21" ry="42" />
+        <ellipse cx="79" cy="332" rx="21" ry="37" />
+      </g>
+      <path d="M0 305v57" stroke="#e0c28f" stroke-opacity=".66" stroke-width="3" />
+    </g>
+    <g id="alcove">
+      <path d="M-180 1020V622a180 180 0 0 1 360 0v398Z" fill="#22180f" opacity=".82" />
+      <path d="M-151 1002V626a151 151 0 0 1 302 0v376" fill="none" stroke="#3a2b1b" stroke-width="27" />
+      <path d="M-125 996V628a125 125 0 0 1 250 0v368" fill="none" stroke="#a17e4c" stroke-opacity=".76" stroke-width="8" />
+      <path d="M-104 974V641a104 104 0 0 1 208 0v333Z" fill="#100c08" opacity=".82" />
+      <path d="M-164 972h328v38h-328Z" fill="#725637" opacity=".72" />
+      <path d="M-116 1001h232" stroke="#d3b47d" stroke-opacity=".46" stroke-width="4" />
+    </g>
+  </defs>
+
+  <rect width="3000" height="1600" fill="#16100b" />
+  <path d="M0 0H3000V282L2460 350H510L0 282Z" fill="url(#ceiling)" />
+  <path d="M0 250L420 304H2580L3000 250V1060H0Z" fill="url(#wall)" />
+  <path d="M0 300H3000V1014H0Z" fill="url(#blocks)" />
+  <ellipse cx="1500" cy="720" rx="1260" ry="690" fill="url(#centerGlow)" />
+
+  <g opacity=".95">
+    <use href="#alcove" x="1510" y="0" />
+    <use href="#alcove" x="2340" y="0" />
+  </g>
+
+  <g opacity=".98">
+    <use href="#pillar" x="140" y="0" />
+    <use href="#pillar" x="1030" y="0" />
+    <use href="#pillar" x="1980" y="0" />
+    <use href="#pillar" x="2860" y="0" />
+  </g>
+
+  <g fill="#352719" stroke="#bd9a64" stroke-opacity=".6" stroke-width="8">
+    <path d="M1190 455h270v390h-270z" />
+    <path d="M1770 478h250v360h-250z" />
+  </g>
+  <g fill="#695032" stroke="#d4b47d" stroke-opacity=".58" stroke-width="5">
+    <path d="M1210 476h230v348h-230z" />
+    <path d="M1790 499h210v318h-210z" />
+  </g>
+  <g fill="none" stroke="#e0c58e" stroke-opacity=".65" stroke-width="9">
+    <circle cx="1325" cy="570" r="42" />
+    <path d="M1325 628v116m-57-57h114m-57 0-42 70m42-70 42 70" />
+    <path d="M1850 560v80m0 0-38 52m38-52 38 52m-76 43h76m-38-95 48-40" />
+  </g>
+  <g fill="none" stroke="#392a1b" stroke-width="8" opacity=".8">
+    <path d="M1248 776h154M1248 797h154M1828 773h136M1828 794h136" />
+  </g>
+
+  <g>
+    <ellipse cx="270" cy="488" rx="360" ry="420" fill="url(#torchGlow)" filter="url(#softGlow)" />
+    <ellipse cx="2700" cy="488" rx="360" ry="420" fill="url(#torchGlow)" filter="url(#softGlow)" />
+    <path d="M238 522h58v115h-58zM2668 522h58v115h-58z" fill="#362719" />
+    <path d="M242 518h50v18h-50zM2672 518h50v18h-50z" fill="#b28b55" />
+    <path d="M267 520c-38-43 31-50 4-104 58 46 26 76-4 104ZM2697 520c-38-43 31-50 4-104 58 46 26 76-4 104Z" fill="#e5a84d" />
+    <path d="M267 506c-15-20 13-31 10-49 25 31 8 39-10 49ZM2697 506c-15-20 13-31 10-49 25 31 8 39-10 49Z" fill="#ffe2a1" />
+  </g>
+
+  <path d="M0 1000H3000V1600H0Z" fill="url(#floor)" />
+  <path d="M0 1010H3000" stroke="#d1ab6d" stroke-opacity=".38" stroke-width="10" />
+  <g fill="none" stroke="#a98759" stroke-opacity=".25" stroke-width="6">
+    <path d="M0 1090H3000M0 1210H3000M0 1350H3000M0 1510H3000" />
+    <path d="M1500 1010L120 1600M1500 1010L570 1600M1500 1010L1020 1600M1500 1010L1980 1600M1500 1010L2430 1600M1500 1010L2880 1600" />
+  </g>
+  <path d="M0 1032H3000" stroke="#20170f" stroke-width="32" opacity=".8" />
+  <path d="M0 1040H3000" stroke="#d0ad75" stroke-opacity=".28" stroke-width="4" />
+</svg>

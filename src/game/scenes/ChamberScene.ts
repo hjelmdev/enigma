@@ -1,10 +1,15 @@
 import Phaser from 'phaser';
 import { rooms } from '../world/rooms';
-import { drawChamber, animateDoorOpen } from './RoomArt';
+import {
+  animateDoorOpen,
+  renderRoomLayers,
+} from '../presentation/RoomRenderer';
+import type { DoorView } from '../presentation/RoomRenderer';
 import { session, solvePuzzle, visitRoom } from '../state/session';
 import { createPuzzlePanel } from '../ui/PuzzlePanel';
 import { createPyramidMap } from '../ui/PyramidMap';
 import {
+  advancePanMomentum,
   clampCameraScrollX,
   getHorizontalPanAvailability,
   isHorizontalSwipe,
@@ -14,6 +19,7 @@ import type {
   HotspotDefinition,
   PuzzleId,
   RoomDefinition,
+  RoomObjectVisual,
 } from '../world/types';
 
 const FOCUS_DURATION = 360;
@@ -43,6 +49,8 @@ interface PointerGesture {
   moved: boolean;
   tapAllowed: boolean;
   horizontal: boolean;
+  lastMoveAt: number;
+  velocityX: number;
 }
 
 export class ChamberScene extends Phaser.Scene {
@@ -59,17 +67,44 @@ export class ChamberScene extends Phaser.Scene {
   private uiHeaderHeight = 0;
   private uiFooterHeight = 0;
   private modal?: Phaser.GameObjects.Container;
-  private doorLeaves = new Map<string, Phaser.GameObjects.Graphics[]>();
+  private doorViews = new Map<string, DoorView>();
   private narrative?: Phaser.GameObjects.Text;
   private roomId = 'entrance';
   private panLeftCue?: Phaser.GameObjects.Text;
   private panRightCue?: Phaser.GameObjects.Text;
+  private panInertiaVelocity = 0;
 
   constructor() {
     super('chamber');
   }
 
-  update() {
+  preload() {
+    for (const room of Object.values(rooms)) {
+      const imagePath = room.presentation.backgroundImage;
+      if (!imagePath) continue;
+      const textureKey = `room-background-${room.id}`;
+      if (!this.textures.exists(textureKey)) {
+        this.load.image(
+          textureKey,
+          new URL(imagePath, document.baseURI).toString(),
+        );
+      }
+    }
+  }
+
+  update(_time: number, delta: number) {
+    if (!this.pointerGesture && Math.abs(this.panInertiaVelocity) >= 0.015) {
+      const next = advancePanMomentum(
+        this.cameras.main.scrollX,
+        this.panInertiaVelocity,
+        delta,
+        this.room.worldBounds,
+        this.cameras.main.width,
+        this.cameras.main.zoom,
+      );
+      this.panInertiaVelocity = next.velocityX;
+      this.setCameraScrollX(next.scrollX);
+    }
     this.updatePanCues();
   }
 
@@ -87,13 +122,8 @@ export class ChamberScene extends Phaser.Scene {
     this.hotspotOutlines.clear();
     this.pointerGesture = undefined;
 
-    const art = drawChamber(this, this.room, this.openExitIds());
-    this.doorLeaves = new Map(
-      this.room.exits.map((exit, index) => [
-        exit.id,
-        art.doorLeaves.slice(index * 2, index * 2 + 2),
-      ]),
-    );
+    const art = renderRoomLayers(this, this.room, this.openExitIds());
+    this.doorViews = art.doorViews;
     this.createHotspots();
 
     const camera = this.cameras.main;
@@ -101,8 +131,11 @@ export class ChamberScene extends Phaser.Scene {
     camera.setZoom(1);
     const maxScrollX = Math.max(x, x + width - viewWidth);
     const maxScrollY = Math.max(y, y + height - viewHeight);
-    // Start at the room's left edge so the player has a reliable point of reference.
-    const defaultScrollX = x;
+    // Place the first authored visual focus in view; edge cues show the room's extent.
+    const firstObject = this.room.presentation.objects[0];
+    const defaultScrollX = firstObject
+      ? firstObject.area.x + firstObject.area.width / 2 - viewWidth * 0.56
+      : x;
     const defaultScrollY = y + (height - viewHeight) / 2;
     camera.setScroll(
       Phaser.Math.Clamp(data.scrollX ?? defaultScrollX, x, maxScrollX),
@@ -151,7 +184,7 @@ export class ChamberScene extends Phaser.Scene {
 
   private drawArtifact(
     graphics: Phaser.GameObjects.Graphics,
-    visual: HotspotDefinition['visual'],
+    visual: RoomObjectVisual,
     width: number,
     height: number,
   ) {
@@ -370,6 +403,7 @@ export class ChamberScene extends Phaser.Scene {
     if (this.modal || this.isFocused || !pointer.isDown) {
       return;
     }
+    this.panInertiaVelocity = 0;
     this.pointerGesture = {
       id: pointer.id,
       startX: pointer.x,
@@ -380,6 +414,8 @@ export class ChamberScene extends Phaser.Scene {
         pointer.y > this.uiHeaderHeight &&
         pointer.y < this.scale.height - this.uiFooterHeight,
       horizontal: false,
+      lastMoveAt: performance.now(),
+      velocityX: 0,
     };
     if (this.pointerGesture.tapAllowed) this.updateHover(pointer);
   }
@@ -390,8 +426,11 @@ export class ChamberScene extends Phaser.Scene {
       if (!this.isFocused && !pointer.isDown) this.updateHover(pointer);
       return;
     }
-    const deltaX = pointer.x - this.pointerGesture.startX;
+    const gesture = this.pointerGesture;
+    const deltaX = pointer.x - gesture.startX;
     const deltaY = pointer.y - this.pointerGesture.startY;
+    const now = performance.now();
+    const elapsed = Math.max(1, now - gesture.lastMoveAt);
     if (
       !this.pointerGesture.moved &&
       Math.hypot(deltaX, deltaY) >= TAP_SWIPE_THRESHOLD
@@ -401,10 +440,16 @@ export class ChamberScene extends Phaser.Scene {
     }
     if (this.pointerGesture.moved && this.pointerGesture.horizontal) {
       this.input.setDefaultCursor('grabbing');
+      const previousScrollX = this.cameras.main.scrollX;
       this.setCameraScrollX(
-        this.pointerGesture.startScrollX - deltaX / this.cameras.main.zoom,
+        gesture.startScrollX - deltaX / this.cameras.main.zoom,
       );
+      const actualMove = this.cameras.main.scrollX - previousScrollX;
+      gesture.velocityX = Phaser.Math.Clamp(actualMove / elapsed, -1.2, 1.2);
+    } else if (this.pointerGesture.moved) {
+      gesture.velocityX = 0;
     }
+    gesture.lastMoveAt = now;
   }
 
   private onPointerUp(pointer: Phaser.Input.Pointer) {
@@ -417,7 +462,10 @@ export class ChamberScene extends Phaser.Scene {
     this.pointerGesture = undefined;
     this.input.setDefaultCursor('default');
 
-    if (gesture.moved || !gesture.tapAllowed || this.isFocused) return;
+    if (gesture.moved || !gesture.tapAllowed || this.isFocused) {
+      if (gesture.horizontal) this.panInertiaVelocity = gesture.velocityX;
+      return;
+    }
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const hotspot = this.room.hotspots.find(({ area }) =>
       Phaser.Geom.Rectangle.Contains(
@@ -431,6 +479,9 @@ export class ChamberScene extends Phaser.Scene {
 
   private onPointerUpOutside(pointer: Phaser.Input.Pointer) {
     if (this.pointerGesture?.id !== pointer.id) return;
+    if (this.pointerGesture.horizontal) {
+      this.panInertiaVelocity = this.pointerGesture.velocityX;
+    }
     this.pointerGesture = undefined;
     this.input.setDefaultCursor('default');
   }
@@ -514,10 +565,10 @@ export class ChamberScene extends Phaser.Scene {
       (candidate) => candidate.requiredPuzzleId === id,
     );
     if (!exit) return;
-    this.cameras.main.pan(exit.x, 720, 480, 'Sine.easeInOut');
-    this.time.delayedCall(480, () =>
-      animateDoorOpen(this, this.doorLeaves.get(exit.id) ?? []),
-    );
+    const door = this.doorViews.get(exit.id);
+    if (!door || door.state !== 'closed') return;
+    this.cameras.main.pan(exit.x, 720, 520, 'Sine.easeInOut');
+    this.time.delayedCall(240, () => animateDoorOpen(this, door));
   }
 
   private useExit(exitId: string) {
@@ -704,7 +755,10 @@ export class ChamberScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const art = this.add.graphics();
-    this.drawArtifact(art, hotspot.visual, artW, artH);
+    const visual =
+      this.room.presentation.objects.find(({ id }) => id === hotspot.id)
+        ?.visual ?? 'relief';
+    this.drawArtifact(art, visual, artW, artH);
     art.setPosition(w / 2 - artW / 2, panelY + panelH * 0.22);
     const description = this.add
       .text(w / 2, panelY + panelH * 0.56, hotspot.description, {

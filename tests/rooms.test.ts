@@ -23,6 +23,22 @@ describe('room content', () => {
           exit.destinationRoomId === 'ending' || rooms[exit.destinationRoomId],
         ).toBeTruthy();
       }
+
+      const objectIds = room.presentation.objects.map(({ id }) => id);
+      expect(new Set(objectIds).size).toBe(objectIds.length);
+      for (const object of room.presentation.objects) {
+        expect(object.area.x).toBeGreaterThanOrEqual(room.worldBounds.x);
+        expect(object.area.y).toBeGreaterThanOrEqual(room.worldBounds.y);
+        expect(object.area.x + object.area.width).toBeLessThanOrEqual(
+          room.worldBounds.x + room.worldBounds.width,
+        );
+        expect(object.area.y + object.area.height).toBeLessThanOrEqual(
+          room.worldBounds.y + room.worldBounds.height,
+        );
+      }
+      expect(
+        room.presentation.doorways.map(({ exitId }) => exitId).sort(),
+      ).toEqual(room.exits.map(({ id }) => id).sort());
     }
   });
 });

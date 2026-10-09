@@ -20,7 +20,7 @@ Useful checks: `npm run typecheck`, `npm run lint`, `npm test` and `npm run buil
 - `src/game/puzzles/` contains testable puzzle rules separate from their Phaser UI.
 - `src/game/state/` tracks visited rooms and solved gates for the current browser session.
 - `src/game/ui/` contains the puzzle panels and schematic pyramid map.
-- `src/game/scenes/RoomArt.ts` draws replaceable layered-vector chamber art.
+- `src/game/presentation/` defines layered room rendering and explicit door visuals.
 - `tests/` contains content validation tests.
 - `docs/` is the source of truth for design and implementation direction.
 

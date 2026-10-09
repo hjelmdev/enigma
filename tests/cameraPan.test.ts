@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advancePanMomentum,
   clampCameraScrollX,
   getHorizontalPanAvailability,
   isHorizontalSwipe,
@@ -36,5 +37,13 @@ describe('mobile chamber camera panning', () => {
       left: false,
       right: false,
     });
+  });
+
+  it('carries a short, bounded glide after a deliberate swipe', () => {
+    expect(advancePanMomentum(600, 0.8, 16, bounds, 390, 1)).toMatchObject({
+      scrollX: 612.8,
+    });
+    expect(advancePanMomentum(2600, 1, 80, bounds, 390, 1).scrollX).toBe(2610);
+    expect(advancePanMomentum(2610, 1, 16, bounds, 390, 1).velocityX).toBe(0);
   });
 });

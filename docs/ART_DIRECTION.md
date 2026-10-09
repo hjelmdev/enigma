@@ -32,11 +32,18 @@ AI-generated backgrounds are appropriate for early concepts and finished art **a
 
 Instead:
 
-1. Author the scene background or layered concept art.
-2. Define interactive objects and coordinates separately in structured data.
-3. Render mechanically exact symbols, numbers, puzzle pieces and UI via Phaser/SVG/HTML.
-4. Overlay particles, focal highlights and animations as separate controllable layers.
-5. Test scaling and hotspot registration on phones and desktops.
+1. Author a chamber background image as a replaceable scene layer.
+2. Keep door frames, moving leaves, doorway reveals and any foreground occlusion in separate layers.
+3. Define interactive hotspots and authored object artwork separately in structured data.
+4. Render mechanically exact symbols, numbers, puzzle pieces and UI via Phaser/SVG/HTML.
+5. Overlay particles, focal highlights and animations as separate controllable layers.
+6. Test scaling and hotspot registration on phones and desktops.
+
+`RoomPresentationDefinition.backgroundImage` accepts a public asset path such as
+`assets/rooms/entrance.webp`. Doorway art is addressed by stable exit ID; its
+visual state moves from `closed` through `opening` to `open`, while progression
+remains owned by game state. Placeholder architecture and object layers can be
+replaced independently when approved generated art is ready.
 
 Use replaceable placeholders until art is ready. Do not assume a design reference in a previous chat is available as an asset in the repo.
 

@@ -4,6 +4,7 @@ export interface HorizontalWorldBounds {
 }
 
 export const TAP_SWIPE_THRESHOLD = 14;
+const PAN_FRICTION_MS = 190;
 
 /** A slightly diagonal swipe still counts as horizontal camera movement. */
 export function isHorizontalSwipe(deltaX: number, deltaY: number) {
@@ -35,4 +36,25 @@ export function getHorizontalPanAvailability(
   const min = bounds.x;
   const max = Math.max(min, bounds.x + bounds.width - visibleWorldWidth);
   return { left: scrollX > min + 1, right: scrollX < max - 1 };
+}
+
+export function advancePanMomentum(
+  scrollX: number,
+  velocityX: number,
+  elapsedMs: number,
+  bounds: HorizontalWorldBounds,
+  viewportWidth: number,
+  zoom: number,
+) {
+  const nextScrollX = clampCameraScrollX(
+    scrollX + velocityX * elapsedMs,
+    bounds,
+    viewportWidth,
+    zoom,
+  );
+  const hitEdge = Math.abs(nextScrollX - scrollX) < 0.01;
+  return {
+    scrollX: nextScrollX,
+    velocityX: hitEdge ? 0 : velocityX * Math.exp(-elapsedMs / PAN_FRICTION_MS),
+  };
 }

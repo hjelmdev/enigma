@@ -39,11 +39,26 @@ docs/
 
 This tree is an example, not a mandatory file-for-file prescription.
 
-The current vertical slice keeps room content in `world/rooms.ts`, shared
-stone presentation in `scenes/RoomArt.ts`, and puzzle rules in pure functions
-under `puzzles/logic.ts`. Phaser panels in `ui/` present those rules. The
-in-memory `state/session.ts` records visited rooms and solved puzzle IDs until
-a page reload; versioned durable storage remains a later milestone.
+The current vertical slice keeps room content in `world/rooms.ts`, layered
+presentation in `presentation/RoomRenderer.ts`, and puzzle rules in pure functions under
+`puzzles/logic.ts`. Phaser panels in `ui/` present those rules. The in-memory
+`state/session.ts` records visited rooms and solved puzzle IDs until a page
+reload; versioned durable storage remains a later milestone.
+
+Room presentation separates the replaceable background from authored
+architecture, object artwork, doorway frames, door leaves, opening reveals and
+atmosphere. `RoomPresentationDefinition` stores visual object bounds and
+doorway dimensions separately from hotspot interaction bounds. A room may set
+`backgroundImage` to a public asset path; the chamber scene preloads it and
+renders it beneath optional foreground layers. When unset or unavailable, the
+palette-based stone treatment is used. Gameplay symbols and hit areas stay in
+data and Phaser overlays, so a generated background can be swapped without
+changing puzzle logic.
+
+Each `DoorView` owns a visual state (`closed`, `opening`, or `open`), a reveal
+layer, and independently animated stone leaves. A solved exit plays the shared
+open sequence; revisiting a room derives the initial `open` state from session
+progress. Unlock state and door art remain separate from hotspot rendering.
 
 ## Data-driven world
 
@@ -58,6 +73,7 @@ interface RoomDefinition {
   id: RoomId;
   title: string;
   background: { top: number; bottom: number; wall: number; accent: number };
+  presentation: RoomPresentationDefinition;
   worldBounds: { x: number; y: number; width: number; height: number };
   intro: string;
   mapGeometry: {
@@ -84,12 +100,35 @@ interface HotspotDefinition {
   id: string;
   label: string;
   description: string;
-  visual: 'vessel' | 'relief' | 'pedestal' | 'mirror' | 'door';
   // Authored world-space geometry, independent of viewport dimensions.
   area: { x: number; y: number; width: number; height: number };
   focus: { x: number; y: number; zoom: number };
   puzzleId?: PuzzleId;
   exitId?: ExitId;
+}
+
+interface RoomPresentationDefinition {
+  backgroundImage?: string;
+  columns: number[];
+  alcoves: number[];
+  torchPositions: number[];
+  objects: RoomObjectDefinition[];
+  doorways: { exitId: ExitId; width: number; height: number }[];
+}
+
+interface RoomPresentationDefinition {
+  backgroundImage?: string;
+  columns: number[];
+  alcoves: number[];
+  torchPositions: number[];
+  objects: RoomObjectDefinition[];
+  doorways: DoorwayArtDefinition[];
+}
+
+interface DoorwayArtDefinition {
+  exitId: ExitId;
+  width: number;
+  height: number;
 }
 ```
 
@@ -137,7 +176,7 @@ Prefer puzzle logic tested without Phaser. Keep UI input and animations outside 
 - Use a pan-able 2D camera whose viewport follows the available screen size while the authored room keeps its scale. Wide screens see more of the room; narrow portrait screens see a narrower slice of the same room.
 - Constrain camera movement to the room's world bounds. Keep vertical framing stable and pan horizontally when the room exceeds the viewport.
 - Distinguish a tap from a swipe with a 14 px screen-space threshold and lock the gesture direction once crossed. Horizontal and moderately diagonal swipes pan the room; vertical gestures do not activate hotspots. A gesture may start anywhere over the game, including the header and footer; taps in those UI bands remain UI-only.
-- Show screen-bound left/right cues only while more room can be explored in that direction. Start each new room at its left edge as a stable orientation reference. Clamp the camera using the visible world width at its current zoom.
+- Show screen-bound left/right cues only while more room can be explored in that direction. Start each room with its first authored visual focus in view as a stable orientation reference. Clamp the camera using the visible world width at its current zoom.
 - Keep navigation hints, inspection controls and other interface elements in a separate screen-space layer. They must not move with the room camera.
 - Touch hotspots need comfortable tap targets without overlapping wrong actions.
 - Focus interaction: save camera position → move/zoom to the selected world-space focus point → show a screen-bound close-up with an always-visible return control → restore the prior camera position.
