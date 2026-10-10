@@ -12,11 +12,14 @@ import {
   stageIndex,
 } from '../src/game/state/prologueSave';
 
+const DEFAULT_HALL = createNewSave(0).hall;
+const DEFAULT_WORLD = createNewSave(0).world;
+
 describe('prologue save defaults', () => {
   it('creates a fresh attic save with empty progress', () => {
     const save = createNewSave(1234);
     expect(save).toEqual({
-      version: 1,
+      version: 2,
       stage: 'attic',
       introSeen: false,
       inventory: [],
@@ -26,14 +29,17 @@ describe('prologue save defaults', () => {
       hintLevel: 0,
       discoveredHotspots: [],
       updatedAt: 1234,
+      hall: DEFAULT_HALL,
+      world: DEFAULT_WORLD,
     });
-    expect(PROLOGUE_SAVE_VERSION).toBe(1);
+    expect(PROLOGUE_SAVE_VERSION).toBe(2);
   });
 
   it('orders stages so later stages have higher indexes', () => {
     expect(stageIndex('attic')).toBe(0);
     expect(stageIndex('artifact')).toBe(1);
     expect(stageIndex('chapter1-gate')).toBe(5);
+    expect(stageIndex('hall')).toBe(7);
   });
 });
 
@@ -53,7 +59,7 @@ describe('prologue save serialization', () => {
 
   it('rejects wrong or missing versions', () => {
     const base = createNewSave(1);
-    expect(sanitizeSave({ ...base, version: 2 })).toBeNull();
+    expect(sanitizeSave({ ...base, version: 3 })).toBeNull();
     expect(sanitizeSave({ ...base, version: '1' })).toBeNull();
     const withoutVersion: Partial<typeof base> = { ...base };
     delete withoutVersion.version;
@@ -92,7 +98,7 @@ describe('prologue save field fallbacks', () => {
       updatedAt: 'later',
     });
     expect(save).toEqual({
-      version: 1,
+      version: 2,
       stage: 'travel',
       introSeen: false,
       inventory: ['miniature'],
@@ -102,6 +108,8 @@ describe('prologue save field fallbacks', () => {
       hintLevel: 0,
       discoveredHotspots: [],
       updatedAt: 0,
+      hall: DEFAULT_HALL,
+      world: DEFAULT_WORLD,
     });
   });
 
@@ -261,5 +269,113 @@ describe('prologue createSaveStore in node', () => {
 
     await store.clearSave();
     expect(await store.loadSave()).toBeNull();
+  });
+});
+
+describe('prologue save v2 migration and nested sanitizing', () => {
+  const v1 = () => {
+    const { hall: _h, world: _w, ...rest } = createNewSave(5);
+    void _h;
+    void _w;
+    return { ...rest, version: 1, stage: 'exterior' };
+  };
+
+  it('migrates v1 to v2 keeping fields and defaulting new ones', () => {
+    const save = sanitizeSave({ ...v1(), introSeen: true, hintLevel: 2 });
+    expect(save?.version).toBe(2);
+    expect(save?.introSeen).toBe(true);
+    expect(save?.hintLevel).toBe(2);
+    expect(save?.hall).toEqual(DEFAULT_HALL);
+    expect(save?.world).toEqual(DEFAULT_WORLD);
+  });
+
+  it('migrates an opened v1 entrance into world exits', () => {
+    const save = sanitizeSave({ ...v1(), entranceOpened: true });
+    expect(save?.world.seenExits).toContain('exterior-entrance');
+    expect(save?.world.openedExits).toContain('exterior-entrance');
+  });
+
+  it('rejects unknown versions', () => {
+    expect(sanitizeSave({ ...v1(), version: 0 })).toBeNull();
+    expect(sanitizeSave({ ...v1(), version: 3 })).toBeNull();
+  });
+
+  it('round-trips a populated v2 save', () => {
+    const save = {
+      ...createNewSave(3),
+      stage: 'hall' as const,
+      inventory: ['miniature'],
+      hall: {
+        arrived: true,
+        mapAwake: 2,
+        relief: { cells: [0, 1, 2], movesLeft: 4, solved: false },
+        balance: {
+          seed: 7,
+          attempt: 1,
+          placed: { scarab: 2, falcon: 0, lotus: 1 },
+          solved: false,
+        },
+        doorsAnimated: ['hall-relief-door'],
+        camX: 120.5,
+      },
+      world: {
+        currentRoom: 'entrance-hall',
+        visitedRooms: ['exterior', 'entrance-passage', 'entrance-hall'],
+        seenExits: ['exterior-entrance', 'passage-hall', 'hall-relief-door'],
+        openedExits: ['exterior-entrance', 'passage-hall'],
+        traversedExits: ['exterior-entrance', 'passage-hall'],
+      },
+    };
+    expect(deserializeSave(serializeSave(save))).toEqual(save);
+  });
+
+  it('sanitizes nested hall fields defensively', () => {
+    const save = sanitizeSave({
+      ...createNewSave(1),
+      hall: {
+        arrived: 'yes',
+        mapAwake: 9,
+        relief: { cells: [1, 'x', NaN, 2.9], movesLeft: -3, solved: 1 },
+        balance: {
+          seed: 'a',
+          attempt: -2,
+          placed: { scarab: 99, falcon: -1, lotus: 2.7, junk: 5 },
+          solved: true,
+        },
+        doorsAnimated: ['a', 'a', 4],
+        camX: Infinity,
+      },
+    });
+    expect(save?.hall).toEqual({
+      arrived: false,
+      mapAwake: 3,
+      relief: { cells: [1, 2], movesLeft: 0, solved: false },
+      balance: {
+        seed: 0,
+        attempt: 0,
+        placed: { scarab: 20, falcon: 0, lotus: 2 },
+        solved: true,
+      },
+      doorsAnimated: ['a'],
+      camX: null,
+    });
+  });
+
+  it('enforces world invariants', () => {
+    const save = sanitizeSave({
+      ...createNewSave(1),
+      world: {
+        currentRoom: 'entrance-hall',
+        visitedRooms: ['exterior', 7],
+        seenExits: [],
+        openedExits: ['a'],
+        traversedExits: ['b'],
+      },
+    });
+    const w = save?.world;
+    expect(w?.visitedRooms).toContain('entrance-hall');
+    expect(w?.openedExits).toEqual(expect.arrayContaining(['a', 'b']));
+    expect(w?.seenExits).toEqual(expect.arrayContaining(['a', 'b']));
+    expect(w?.traversedExits).toEqual(['b']);
   });
 });

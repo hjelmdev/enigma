@@ -70,6 +70,40 @@ class Progress {
     this.commit((save) => save.discoveredHotspots.push(hotspotId));
   }
 
+  visitRoom(roomId: string) {
+    const w = this.current().world;
+    if (w.currentRoom === roomId && w.visitedRooms.includes(roomId)) return;
+    this.commit((save) => {
+      save.world.currentRoom = roomId;
+      if (!save.world.visitedRooms.includes(roomId))
+        save.world.visitedRooms.push(roomId);
+    });
+  }
+
+  seeExit(exitId: string) {
+    if (this.current().world.seenExits.includes(exitId)) return;
+    this.commit((save) => save.world.seenExits.push(exitId));
+  }
+
+  openExit(exitId: string) {
+    if (this.current().world.openedExits.includes(exitId)) return;
+    this.commit((save) => {
+      const w = save.world;
+      if (!w.seenExits.includes(exitId)) w.seenExits.push(exitId);
+      w.openedExits.push(exitId);
+    });
+  }
+
+  traverseExit(exitId: string) {
+    if (this.current().world.traversedExits.includes(exitId)) return;
+    this.commit((save) => {
+      const w = save.world;
+      if (!w.seenExits.includes(exitId)) w.seenExits.push(exitId);
+      if (!w.openedExits.includes(exitId)) w.openedExits.push(exitId);
+      w.traversedExits.push(exitId);
+    });
+  }
+
   updateSettings(patch: Partial<PrologueSettings>) {
     this.settings = { ...this.settings, ...patch };
     applySettings(this.settings);
