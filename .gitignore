@@ -5,3 +5,4 @@ coverage/
 .vite/
 *.tsbuildinfo
 sealed-sun-art/
+artifacts/hidden-horizon/

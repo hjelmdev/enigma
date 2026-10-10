@@ -203,6 +203,18 @@ export class MenuScene extends Phaser.Scene {
     expButton.on('pointerup', openExperiment);
     expLabel.on('pointerup', openExperiment);
 
+    // Independent clean-room comparison; existing experiments keep their entry.
+    const horizonLabel = this.add
+      .text(14, 70, 'SOL · DOLDA HORISONTEN →', {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: '12px',
+        color: '#d6ead5',
+        backgroundColor: '#162c38',
+        padding: { x: 12, y: 16 },
+      })
+      .setInteractive({ useHandCursor: true });
+    horizonLabel.on('pointerup', () => this.scene.start('hidden-horizon'));
+
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
