@@ -6,6 +6,7 @@ import { Overlay } from '../prologue/overlay';
 import { openSettingsPanel } from '../prologue/panels';
 import { prefersReducedMotion, progress } from '../prologue/progress';
 import { stageIndex } from '../state/prologueSave';
+import type { Difficulty } from '../difficulty';
 import layout from '../prologue/exteriorLayout.json';
 
 const P = layout.panorama;
@@ -180,30 +181,60 @@ export class TitleScene extends Phaser.Scene {
     });
   }
 
-  private onNewGame() {
-    if (!progress.hasSave) return this.begin(() => progress.startNew());
+  private async onNewGame() {
+    await progress.load();
+    if (!this.scene.isActive()) return;
+    const hasSave = progress.hasSave;
     const body = document.createElement('div');
-    const p = document.createElement('p');
-    p.textContent = TEXT.title.confirmNew;
-    body.appendChild(p);
+    if (hasSave) {
+      const p = document.createElement('p');
+      p.textContent = TEXT.title.confirmNew;
+      body.appendChild(p);
+    }
+    const difficultyLabel = document.createElement('label');
+    difficultyLabel.className = 'pro-difficulty';
+    difficultyLabel.textContent = TEXT.title.difficulty;
+    const difficulty = document.createElement('select');
+    difficulty.className = 'pro-difficulty-select';
+    const options: Array<[Difficulty, string]> = [
+      ['easy', TEXT.title.difficulties.easy],
+      ['normal', TEXT.title.difficulties.normal],
+      ['hard', TEXT.title.difficulties.hard],
+    ];
+    for (const [value, label] of options) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      difficulty.appendChild(option);
+    }
+    difficulty.value = 'normal';
+    difficultyLabel.appendChild(difficulty);
+    body.appendChild(difficultyLabel);
     const row = document.createElement('div');
     row.className = 'pro-row';
     body.appendChild(row);
     const panel = this.overlay.panel(TEXT.title.newGame, body, {
-      closeLabel: TEXT.title.confirmNo,
+      closeLabel: false,
+      className: 'pro-panel-confirm',
     });
     this.overlay.button(
-      TEXT.title.confirmYes,
+      hasSave ? TEXT.title.confirmYes : TEXT.title.startGame,
       () => {
         panel.close();
         // Keep the "intro seen" flag so returning players may skip it.
         const seen = progress.current().introSeen;
         this.begin(() => {
-          progress.startNew();
+          progress.startNew(difficulty.value as Difficulty);
           progress.commit((s) => (s.introSeen = seen));
         });
       },
       'pro-btn pro-btn-primary',
+      row,
+    );
+    this.overlay.button(
+      TEXT.title.confirmNo,
+      () => panel.close(),
+      'pro-btn',
       row,
     );
   }
@@ -215,6 +246,11 @@ export class TitleScene extends Phaser.Scene {
 
   private continueGame() {
     const save = progress.current();
+    if (save.world.currentRoom === 'chamber-of-stars')
+      return this.leave('star-chamber');
+    if (save.world.currentRoom === 'entrance-hall') return this.leave('hall');
+    if (save.world.currentRoom === 'entrance-passage')
+      return this.leave('corridor');
     if (save.stage === 'hall') return this.leave('hall');
     if (save.stage === 'corridor' || save.stage === 'chapter1-gate')
       return this.leave('corridor');

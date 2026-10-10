@@ -13,14 +13,16 @@ import {
 } from '../src/game/state/prologueSave';
 
 const DEFAULT_HALL = createNewSave(0).hall;
+const DEFAULT_STARS = createNewSave(0).stars;
 const DEFAULT_WORLD = createNewSave(0).world;
 
 describe('prologue save defaults', () => {
   it('creates a fresh attic save with empty progress', () => {
     const save = createNewSave(1234);
     expect(save).toEqual({
-      version: 2,
+      version: 4,
       stage: 'attic',
+      difficulty: 'normal',
       introSeen: false,
       inventory: [],
       sunEyeSolved: false,
@@ -29,10 +31,11 @@ describe('prologue save defaults', () => {
       hintLevel: 0,
       discoveredHotspots: [],
       updatedAt: 1234,
-      hall: DEFAULT_HALL,
+      hall: { ...DEFAULT_HALL, reliefSeed: save.hall.reliefSeed },
+      stars: DEFAULT_STARS,
       world: DEFAULT_WORLD,
     });
-    expect(PROLOGUE_SAVE_VERSION).toBe(2);
+    expect(PROLOGUE_SAVE_VERSION).toBe(4);
   });
 
   it('orders stages so later stages have higher indexes', () => {
@@ -40,6 +43,12 @@ describe('prologue save defaults', () => {
     expect(stageIndex('artifact')).toBe(1);
     expect(stageIndex('chapter1-gate')).toBe(5);
     expect(stageIndex('hall')).toBe(7);
+  });
+
+  it('assigns a fresh relief seed to each genuinely new save', () => {
+    expect(createNewSave().hall.reliefSeed).not.toBe(
+      createNewSave().hall.reliefSeed,
+    );
   });
 });
 
@@ -57,9 +66,38 @@ describe('prologue save serialization', () => {
     expect(deserializeSave(serializeSave(save))).toEqual(save);
   });
 
+  it('persists each selected difficulty and defaults fresh saves to Normal', () => {
+    expect(createNewSave(1).difficulty).toBe('normal');
+    for (const difficulty of ['easy', 'normal', 'hard'] as const) {
+      const save = createNewSave(42, difficulty);
+      expect(deserializeSave(serializeSave(save))?.difficulty).toBe(difficulty);
+    }
+  });
+
+  it('persists per-puzzle difficulty snapshots without changing the save version', () => {
+    const save = createNewSave(42, 'hard');
+    save.hall.relief = {
+      difficulty: 'easy',
+      seed: 12,
+      initialCells: [0, 1, 2, 3, 4, 5, 6, 7, -1],
+      cells: [0, 1, 2, 3, 4, 5, 6, 7, -1],
+      movesLeft: 14,
+      solved: false,
+    };
+    save.hall.balance = {
+      difficulty: 'normal',
+      seed: 13,
+      attempt: 2,
+      placed: { scarab: 1, falcon: 0, lotus: 0 },
+      solved: false,
+    };
+    expect(deserializeSave(serializeSave(save))).toEqual(save);
+    expect(PROLOGUE_SAVE_VERSION).toBe(4);
+  });
+
   it('rejects wrong or missing versions', () => {
     const base = createNewSave(1);
-    expect(sanitizeSave({ ...base, version: 3 })).toBeNull();
+    expect(sanitizeSave({ ...base, version: 5 })).toBeNull();
     expect(sanitizeSave({ ...base, version: '1' })).toBeNull();
     const withoutVersion: Partial<typeof base> = { ...base };
     delete withoutVersion.version;
@@ -98,8 +136,9 @@ describe('prologue save field fallbacks', () => {
       updatedAt: 'later',
     });
     expect(save).toEqual({
-      version: 2,
+      version: 4,
       stage: 'travel',
+      difficulty: 'easy',
       introSeen: false,
       inventory: ['miniature'],
       sunEyeSolved: false,
@@ -108,7 +147,8 @@ describe('prologue save field fallbacks', () => {
       hintLevel: 0,
       discoveredHotspots: [],
       updatedAt: 0,
-      hall: DEFAULT_HALL,
+      hall: { ...DEFAULT_HALL, reliefSeed: 0 },
+      stars: DEFAULT_STARS,
       world: DEFAULT_WORLD,
     });
   });
@@ -272,7 +312,7 @@ describe('prologue createSaveStore in node', () => {
   });
 });
 
-describe('prologue save v2 migration and nested sanitizing', () => {
+describe('prologue save migrations and nested sanitizing', () => {
   const v1 = () => {
     const { hall: _h, world: _w, ...rest } = createNewSave(5);
     void _h;
@@ -280,13 +320,40 @@ describe('prologue save v2 migration and nested sanitizing', () => {
     return { ...rest, version: 1, stage: 'exterior' };
   };
 
-  it('migrates v1 to v2 keeping fields and defaulting new ones', () => {
+  it('migrates v1 saves to easy and keeps the original puzzle experience', () => {
     const save = sanitizeSave({ ...v1(), introSeen: true, hintLevel: 2 });
-    expect(save?.version).toBe(2);
+    expect(save?.version).toBe(4);
+    expect(save?.difficulty).toBe('easy');
     expect(save?.introSeen).toBe(true);
     expect(save?.hintLevel).toBe(2);
-    expect(save?.hall).toEqual(DEFAULT_HALL);
+    expect(save?.hall).toEqual({ ...DEFAULT_HALL, reliefSeed: 0 });
     expect(save?.world).toEqual(DEFAULT_WORLD);
+  });
+
+  it('migrates v2 without a difficulty while retaining its seeded puzzle data', () => {
+    const old = {
+      ...createNewSave(12, 'hard'),
+      version: 2,
+      difficulty: undefined,
+      hall: {
+        ...createNewSave(12).hall,
+        reliefSeed: 321,
+        relief: {
+          seed: 321,
+          initialCells: [0, -1, 4, 3, 2, 1, 6, 7, 5],
+          cells: [0, -1, 4, 3, 2, 1, 6, 7, 5],
+          movesLeft: 8,
+          solved: false,
+        },
+      },
+    };
+    const migrated = sanitizeSave(old);
+    expect(migrated?.difficulty).toBe('easy');
+    expect(migrated?.hall.relief?.seed).toBe(321);
+    expect(migrated?.hall.relief?.initialCells).toEqual([
+      0, -1, 4, 3, 2, 1, 6, 7, 5,
+    ]);
+    expect(migrated?.hall.relief?.movesLeft).toBe(8);
   });
 
   it('migrates an opened v1 entrance into world exits', () => {
@@ -297,10 +364,10 @@ describe('prologue save v2 migration and nested sanitizing', () => {
 
   it('rejects unknown versions', () => {
     expect(sanitizeSave({ ...v1(), version: 0 })).toBeNull();
-    expect(sanitizeSave({ ...v1(), version: 3 })).toBeNull();
+    expect(sanitizeSave({ ...v1(), version: 5 })).toBeNull();
   });
 
-  it('round-trips a populated v2 save', () => {
+  it('round-trips a populated v4 save', () => {
     const save = {
       ...createNewSave(3),
       stage: 'hall' as const,
@@ -308,6 +375,7 @@ describe('prologue save v2 migration and nested sanitizing', () => {
       hall: {
         arrived: true,
         mapAwake: 2,
+        reliefSeed: 707,
         relief: { cells: [0, 1, 2], movesLeft: 4, solved: false },
         balance: {
           seed: 7,
@@ -349,6 +417,7 @@ describe('prologue save v2 migration and nested sanitizing', () => {
     expect(save?.hall).toEqual({
       arrived: false,
       mapAwake: 3,
+      reliefSeed: 0,
       relief: { cells: [1, 2], movesLeft: 0, solved: false },
       balance: {
         seed: 0,

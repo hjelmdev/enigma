@@ -15,6 +15,11 @@ export const ROOMS: Record<string, RoomIdentity> = {
     name: 'Ingångsgången',
   },
   'entrance-hall': { id: 'entrance-hall', kind: 'hall', name: 'Stora hallen' },
+  'chamber-of-stars': {
+    id: 'chamber-of-stars',
+    kind: 'chamber',
+    name: 'Stjärnornas kammare',
+  },
 };
 
 /** to=null: destination unresolved / not built in this run. */
@@ -33,6 +38,7 @@ export const EXIT = {
   passageToHall: 'passage-hall',
   reliefDoor: 'hall-relief-door',
   balanceDoor: 'hall-balance-door',
+  starsReturn: 'stars-hall-return',
 } as const;
 
 /** Fixed today; seed is reserved for future run variation. */
@@ -43,7 +49,8 @@ export function createChapter1Graph(seed = 0): RunGraph {
       { id: EXIT.entrance, from: 'exterior', to: 'entrance-passage' },
       { id: EXIT.passageToHall, from: 'entrance-passage', to: 'entrance-hall' },
       { id: EXIT.reliefDoor, from: 'entrance-hall', to: null },
-      { id: EXIT.balanceDoor, from: 'entrance-hall', to: null },
+      { id: EXIT.balanceDoor, from: 'entrance-hall', to: 'chamber-of-stars' },
+      { id: EXIT.starsReturn, from: 'chamber-of-stars', to: 'entrance-hall' },
     ],
   };
 }

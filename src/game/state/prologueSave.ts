@@ -1,4 +1,8 @@
-export const PROLOGUE_SAVE_VERSION = 2;
+import { randomSeed } from '../puzzles/randomSeed';
+import { isDifficulty } from '../difficulty';
+import type { Difficulty } from '../difficulty';
+
+export const PROLOGUE_SAVE_VERSION = 4;
 
 export const PROLOGUE_STAGES = [
   'attic',
@@ -9,6 +13,7 @@ export const PROLOGUE_STAGES = [
   'chapter1-gate',
   'corridor',
   'hall',
+  'stars',
 ] as const;
 
 export type PrologueStage = (typeof PROLOGUE_STAGES)[number];
@@ -20,8 +25,17 @@ const MAX_WEIGHT_COUNT = 20;
 export interface HallSave {
   arrived: boolean; // arrival sequence in the hall has played
   mapAwake: number; // 0 dormant, 1 awakened, 2 reacted to first solve, 3 both
-  relief: { cells: number[]; movesLeft: number; solved: boolean } | null;
+  reliefSeed: number; // per-run seed for the first sliding relief
+  relief: {
+    difficulty?: Difficulty;
+    seed?: number;
+    initialCells?: number[];
+    cells: number[];
+    movesLeft: number;
+    solved: boolean;
+  } | null;
   balance: {
+    difficulty?: Difficulty;
     seed: number;
     attempt: number;
     placed: Record<WeightKind, number>;
@@ -29,6 +43,17 @@ export interface HallSave {
   } | null;
   doorsAnimated: string[]; // exit ids whose opening animation already played
   camX: number | null; // last hall camera center (art px)
+}
+
+export interface StarsSave {
+  constellation: 'reed' | 'crown' | 'boat' | 'hook' | null;
+  rotation: number;
+  solved: boolean;
+  discoveredClues: string[];
+  secretFound: boolean;
+  apertureAnimated: boolean;
+  camX: number | null;
+  camY: number | null;
 }
 
 export interface WorldSave {
@@ -40,7 +65,8 @@ export interface WorldSave {
 }
 
 export interface PrologueSave {
-  version: 2;
+  version: 4;
+  difficulty: Difficulty;
   stage: PrologueStage;
   introSeen: boolean; // intro watched fully once (allows skipping later)
   inventory: string[]; // item ids, e.g. 'miniature'; unique, strings only
@@ -51,6 +77,7 @@ export interface PrologueSave {
   discoveredHotspots: string[]; // unique strings
   updatedAt: number; // ms epoch
   hall: HallSave;
+  stars: StarsSave;
   world: WorldSave;
 }
 
@@ -77,10 +104,14 @@ const LOCAL_STORAGE_KEYS: Record<StorageKey, string> = {
 
 type StorageKey = 'prologue-save' | 'settings';
 
-export function createNewSave(now: number = Date.now()): PrologueSave {
+export function createNewSave(
+  now: number = Date.now(),
+  difficulty: Difficulty = 'normal',
+): PrologueSave {
   return {
     version: PROLOGUE_SAVE_VERSION,
     stage: 'attic',
+    difficulty,
     introSeen: false,
     inventory: [],
     sunEyeSolved: false,
@@ -92,10 +123,21 @@ export function createNewSave(now: number = Date.now()): PrologueSave {
     hall: {
       arrived: false,
       mapAwake: 0,
+      reliefSeed: randomSeed(),
       relief: null,
       balance: null,
       doorsAnimated: [],
       camX: null,
+    },
+    stars: {
+      constellation: null,
+      rotation: 2,
+      solved: false,
+      discoveredClues: [],
+      secretFound: false,
+      apertureAnimated: false,
+      camX: null,
+      camY: null,
     },
     world: {
       currentRoom: 'exterior',
@@ -142,16 +184,40 @@ function nonNegInt(value: unknown, fallback: number, max = Infinity): number {
 }
 
 function sanitizeHall(raw: unknown): HallSave {
-  const hall = createNewSave(0).hall;
+  const hall: HallSave = {
+    arrived: false,
+    mapAwake: 0,
+    reliefSeed: 0,
+    relief: null,
+    balance: null,
+    doorsAnimated: [],
+    camX: null,
+  };
   if (!isRecord(raw)) return hall;
   hall.arrived = boolOr(raw.arrived, false);
   hall.mapAwake = nonNegInt(raw.mapAwake, 0, 3);
+  hall.reliefSeed = nonNegInt(raw.reliefSeed, 0, 0xffffffff);
   hall.doorsAnimated = uniqueStrings(raw.doorsAnimated);
   hall.camX =
     typeof raw.camX === 'number' && Number.isFinite(raw.camX) ? raw.camX : null;
 
   if (isRecord(raw.relief) && Array.isArray(raw.relief.cells)) {
     hall.relief = {
+      ...(isDifficulty(raw.relief.difficulty)
+        ? { difficulty: raw.relief.difficulty }
+        : {}),
+      ...(typeof raw.relief.seed === 'number' &&
+      Number.isInteger(raw.relief.seed)
+        ? { seed: raw.relief.seed >>> 0 }
+        : {}),
+      ...(Array.isArray(raw.relief.initialCells)
+        ? {
+            initialCells: raw.relief.initialCells.filter(
+              (cell): cell is number =>
+                typeof cell === 'number' && Number.isInteger(cell),
+            ),
+          }
+        : {}),
       cells: raw.relief.cells
         .filter((c): c is number => typeof c === 'number' && Number.isFinite(c))
         .map((c) => Math.trunc(c)),
@@ -170,6 +236,9 @@ function sanitizeHall(raw: unknown): HallSave {
     for (const kind of WEIGHT_KINDS)
       placed[kind] = nonNegInt(placedRaw[kind], 0, MAX_WEIGHT_COUNT);
     hall.balance = {
+      ...(isDifficulty(raw.balance.difficulty)
+        ? { difficulty: raw.balance.difficulty }
+        : {}),
       seed: Math.trunc(
         typeof raw.balance.seed === 'number' &&
           Number.isFinite(raw.balance.seed)
@@ -182,6 +251,41 @@ function sanitizeHall(raw: unknown): HallSave {
     };
   }
   return hall;
+}
+
+function sanitizeStars(raw: unknown): StarsSave {
+  const stars: StarsSave = {
+    constellation: null,
+    rotation: 2,
+    solved: false,
+    discoveredClues: [],
+    secretFound: false,
+    apertureAnimated: false,
+    camX: null,
+    camY: null,
+  };
+  if (!isRecord(raw)) return stars;
+  const options = ['reed', 'crown', 'boat', 'hook'] as const;
+  const constellation = options.includes(raw.constellation as (typeof options)[number])
+    ? (raw.constellation as (typeof options)[number])
+    : null;
+  const discoveredClues = uniqueStrings(raw.discoveredClues).filter((id) =>
+    ['star-chart', 'horizon-relief'].includes(id),
+  );
+  const rotation = Number.isInteger(raw.rotation)
+    ? ((Number(raw.rotation) % 4) + 4) % 4
+    : stars.rotation;
+  const solved = raw.solved === true && constellation === 'reed' && rotation === 0 && discoveredClues.length === 2;
+  return {
+    constellation,
+    rotation,
+    solved,
+    discoveredClues,
+    secretFound: boolOr(raw.secretFound, false),
+    apertureAnimated: boolOr(raw.apertureAnimated, false),
+    camX: typeof raw.camX === 'number' && Number.isFinite(raw.camX) ? raw.camX : null,
+    camY: typeof raw.camY === 'number' && Number.isFinite(raw.camY) ? raw.camY : null,
+  };
 }
 
 function sanitizeWorld(raw: unknown, entranceOpened: boolean): WorldSave {
@@ -209,13 +313,20 @@ function sanitizeWorld(raw: unknown, entranceOpened: boolean): WorldSave {
 
 export function sanitizeSave(raw: unknown): PrologueSave | null {
   if (!isRecord(raw)) return null;
-  if (raw.version !== 1 && raw.version !== 2) return null;
+  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3 && raw.version !== 4) return null;
   if (!isStage(raw.stage)) return null;
 
   const defaults = createNewSave(0);
   const save: PrologueSave = {
     version: PROLOGUE_SAVE_VERSION,
     stage: raw.stage,
+    // Pre-v3 runs used the original beginner puzzle; retain that experience.
+    difficulty:
+      raw.version < 3
+        ? 'easy'
+        : isDifficulty(raw.difficulty)
+          ? raw.difficulty
+          : 'normal',
     introSeen: boolOr(raw.introSeen, defaults.introSeen),
     inventory: uniqueStrings(raw.inventory),
     sunEyeSolved: boolOr(raw.sunEyeSolved, defaults.sunEyeSolved),
@@ -228,6 +339,7 @@ export function sanitizeSave(raw: unknown): PrologueSave | null {
         ? raw.updatedAt
         : 0,
     hall: sanitizeHall(raw.hall),
+    stars: sanitizeStars(raw.stars),
     world: defaults.world,
   };
 

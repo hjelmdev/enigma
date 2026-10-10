@@ -76,7 +76,7 @@ const HOTSPOTS: Array<{ id: HotspotId; x: number; y: number }> = [
 ];
 
 export interface HallData {
-  from?: 'corridor' | 'relief-puzzle' | 'balance-puzzle';
+  from?: 'corridor' | 'relief-puzzle' | 'balance-puzzle' | 'stars';
   solvedNow?: HallPuzzle;
 }
 
@@ -525,9 +525,11 @@ export class HallScene extends Phaser.Scene {
           isSolved('relief') ? t.reliefDoor.opened : t.reliefDoor.text,
         );
       case 'balanceDoor':
-        return this.overlay.caption(
-          isSolved('balance') ? t.balanceDoor.opened : t.balanceDoor.text,
-        );
+        if (!isSolved('balance')) return this.overlay.caption(t.balanceDoor.text);
+        return this.overlay.caption(t.balanceDoor.opened, {
+          next: 'Gå in i Stjärnornas kammare',
+          onNext: () => this.enterStars(),
+        });
       default:
         return this.overlay.caption(t[id].text);
     }
@@ -548,6 +550,17 @@ export class HallScene extends Phaser.Scene {
     if (!balance && (relief || !seen.includes('hall-balance')))
       return this.overlay.caption(h.balance);
     this.overlay.caption(h.start);
+  }
+
+  private enterStars() {
+    if (this.busy || !isSolved('balance')) return;
+    progress.commit((s) => (s.hall.camX = Math.round(this.view.centerX)));
+    this.busy = true;
+    this.overlay.clearCaption();
+    this.cameras.main.fadeOut(520, 7, 9, 18);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
+      this.scene.start('star-chamber', { from: 'hall' }),
+    );
   }
 
   // -- Camera -------------------------------------------------------------------
