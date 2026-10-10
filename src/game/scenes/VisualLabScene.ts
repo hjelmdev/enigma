@@ -12,7 +12,9 @@ import {
 } from '../visual-lab/model';
 
 const ROOM = SEALED_SUN_ROOM;
-const PAN_THRESHOLD = 12;
+// A 12px threshold is too sensitive to natural finger drift on phones; it
+// turned ordinary taps on small hotspots into cancelled pan gestures.
+const PAN_THRESHOLD = 22;
 
 interface DoorLayers {
   corridor: Phaser.GameObjects.Image;
@@ -43,6 +45,7 @@ export class VisualLabScene extends Phaser.Scene {
   private panVelocity = 0;
   private lastPointerSample?: { x: number; time: number };
   private suppressTapUntil = 0;
+  private hotspotTap?: { pointerId: number; onTap: () => void };
   private openingTweens: Phaser.Tweens.Tween[] = [];
   private puzzleDiscs: Phaser.GameObjects.Image[] = [];
   private puzzleBoard?: Phaser.GameObjects.Rectangle;
@@ -82,6 +85,7 @@ export class VisualLabScene extends Phaser.Scene {
     this.doorState = 'closed';
     this.isOpening = false;
     this.pointerStart = undefined;
+    this.hotspotTap = undefined;
     this.roomObjects = [];
     this.doorLayers = undefined;
     this.puzzleView = undefined;
@@ -332,9 +336,11 @@ export class VisualLabScene extends Phaser.Scene {
       .zone(x, y, width, height)
       .setInteractive({ useHandCursor: true });
     this.roomObjects.push(zone);
-    zone.on('pointerup', () => {
-      if (!this.pointerStart?.moved && this.time.now > this.suppressTapUntil)
-        onTap();
+    // Keep the intent on pointerdown, then let the scene-level release decide
+    // whether this was a tap or a pan. Game-object pointerup can be omitted on
+    // some touch browsers when pointer capture changes during a camera drag.
+    zone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.hotspotTap = { pointerId: pointer.id, onTap };
     });
     return zone;
   }
@@ -926,8 +932,10 @@ export class VisualLabScene extends Phaser.Scene {
       if (!start || !pointer.isDown) return;
       const deltaX = pointer.x - start.x;
       const deltaY = pointer.y - start.y;
-      if (!start.moved && Math.hypot(deltaX, deltaY) >= PAN_THRESHOLD)
+      if (!start.moved && Math.hypot(deltaX, deltaY) >= PAN_THRESHOLD) {
         start.moved = true;
+        this.hotspotTap = undefined;
+      }
       if (start.moved) {
         camera.scrollX = Phaser.Math.Clamp(
           start.scrollX - deltaX / camera.zoom,
@@ -946,12 +954,21 @@ export class VisualLabScene extends Phaser.Scene {
         this.lastPointerSample = { x: pointer.x, time: this.time.now };
       }
     });
-    this.input.on('pointerup', () => {
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      const tap = this.hotspotTap;
+      if (
+        tap?.pointerId === pointer.id &&
+        !this.pointerStart?.moved &&
+        this.time.now > this.suppressTapUntil
+      )
+        tap.onTap();
+      this.hotspotTap = undefined;
       if (this.pointerStart?.moved) this.suppressTapUntil = this.time.now + 140;
       this.pointerStart = undefined;
       this.lastPointerSample = undefined;
     });
     this.input.on('pointerupoutside', () => {
+      this.hotspotTap = undefined;
       if (this.pointerStart?.moved) this.suppressTapUntil = this.time.now + 140;
       this.pointerStart = undefined;
       this.lastPointerSample = undefined;
