@@ -1,0 +1,492 @@
+.horizon-ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: #efdfbc;
+  font-family: Georgia, serif;
+}
+.horizon-ui button {
+  pointer-events: auto;
+  min-height: 46px;
+  border: 1px solid #807153;
+  background: #142435ee;
+  color: #efdfbc;
+  padding: 10px 17px;
+  cursor: pointer;
+  font:
+    14px system-ui,
+    sans-serif;
+  border-radius: 3px;
+  touch-action: manipulation;
+}
+.horizon-ui button:hover {
+  background: #2c494e;
+  border-color: #c4b17f;
+}
+.horizon-ui button:focus-visible {
+  outline: 3px solid #8bddcb;
+  outline-offset: 3px;
+}
+.horizon-ui button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.horizon-ui header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  padding: 22px 28px;
+  background: linear-gradient(#080f20d9, transparent);
+}
+.horizon-ui small {
+  font:
+    10px system-ui,
+    sans-serif;
+  letter-spacing: 3px;
+  color: #c7b68c;
+}
+.horizon-ui h1 {
+  margin: 6px 0 0;
+  font-size: clamp(20px, 2.2vw, 30px);
+  font-weight: normal;
+  letter-spacing: 1px;
+}
+.horizon-ui nav {
+  display: flex;
+  gap: 8px;
+}
+.horizon-ui header button {
+  padding: 10px 13px;
+}
+.horizon-ui footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  padding: 18px 28px;
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) auto;
+  gap: 8px 24px;
+  align-items: end;
+  background: linear-gradient(transparent, #080f20ed 28%);
+}
+.horizon-story {
+  max-width: 430px;
+}
+.horizon-story p {
+  margin: 7px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.horizon-pan {
+  grid-column: 2;
+  text-align: right;
+  font:
+    11px system-ui,
+    sans-serif;
+  color: #b7c7c9;
+}
+.horizon-dialog {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: #060d1de8;
+  backdrop-filter: blur(4px);
+}
+.horizon-panel {
+  width: min(850px, 100%);
+  max-height: 100%;
+  padding: 24px 30px;
+  border: 1px solid #9f8657;
+  background: radial-gradient(ellipse at 25% 25%, #293e4d, #111b2a 80%);
+  box-shadow:
+    0 20px 100px #0008,
+    inset 0 0 0 5px #152332,
+    inset 0 0 0 6px #4a5149;
+}
+.horizon-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.horizon-panel h2 {
+  font-weight: normal;
+  margin: 6px 0 0;
+  font-size: 28px;
+}
+.horizon-dialog-body {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 28px;
+  align-items: center;
+}
+.horizon-dialog-body p {
+  line-height: 1.55;
+  font-size: 16px;
+}
+.horizon-dialog-body aside {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.horizon-dialog-body aside p {
+  margin: 0;
+}
+.horizon-dialog-body blockquote {
+  margin: 10px 0;
+  font-size: 20px;
+  line-height: 1.5;
+  color: #c9d7cc;
+}
+.horizon-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding: 18px 16px;
+  border: 6px ridge #a68b5c;
+  background: #183445;
+  box-shadow: inset 0 0 40px #080d1d;
+}
+.horizon-slider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.horizon-slider strong {
+  font:
+    12px system-ui,
+    sans-serif;
+  letter-spacing: 1px;
+}
+.horizon-emblem canvas {
+  width: 56px;
+  height: 52px;
+  image-rendering: pixelated;
+}
+.horizon-slider button {
+  width: 100%;
+  padding: 8px;
+  min-height: 46px;
+  color: #e4c480;
+}
+.horizon-track {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(
+    90deg,
+    transparent 45%,
+    #080e1b 45%,
+    #080e1b 55%,
+    transparent 55%
+  );
+}
+.horizon-notch {
+  display: block;
+  height: 32px;
+  position: relative;
+}
+.horizon-notch::before {
+  content: '';
+  position: absolute;
+  width: 26px;
+  height: 2px;
+  background: #567a83;
+  left: calc(50% - 13px);
+  top: 15px;
+  box-shadow: 0 2px #091929;
+}
+.horizon-notch:last-child::before {
+  width: calc(100% + 16px);
+  left: -8px;
+  height: 3px;
+  background: #75bfba;
+}
+.horizon-notch.selected::after {
+  content: '';
+  position: absolute;
+  width: 27px;
+  height: 27px;
+  left: calc(50% - 13px);
+  top: 2px;
+  background: #f3d690;
+  clip-path: polygon(
+    50% 0,
+    62% 35%,
+    100% 50%,
+    62% 62%,
+    50% 100%,
+    36% 62%,
+    0 50%,
+    36% 35%
+  );
+  filter: drop-shadow(0 0 6px #efd17a);
+}
+.horizon-slider output {
+  font:
+    10px system-ui,
+    sans-serif;
+  text-align: center;
+  color: #b9cdc9;
+}
+.horizon-ui .horizon-activate {
+  background: #bd9c61;
+  color: #0c1928;
+  font-weight: 700;
+}
+.horizon-feedback {
+  min-height: 48px;
+  color: #eed09a;
+  font-size: 14px !important;
+}
+.horizon-relief-image canvas {
+  width: 100%;
+  image-rendering: pixelated;
+}
+.horizon-door-symbol {
+  text-align: center;
+  font-size: 120px;
+  color: #7bbaaf;
+}
+.horizon-dialog.activated .horizon-board {
+  box-shadow:
+    0 0 70px #83e3c8,
+    inset 0 0 40px #418980;
+}
+@media (max-width: 600px) and (min-height: 501px) {
+  .horizon-ui header {
+    padding: 15px;
+  }
+  .horizon-ui small {
+    letter-spacing: 1.8px;
+    font-size: 9px;
+  }
+  .horizon-ui h1 {
+    font-size: 20px;
+  }
+  .horizon-ui footer {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .horizon-ui footer nav {
+    justify-content: stretch;
+  }
+  .horizon-ui footer button {
+    flex: 1;
+    padding: 10px;
+  }
+  .horizon-pan {
+    text-align: center;
+  }
+  .horizon-story p {
+    font-size: 14px;
+  }
+  .horizon-panel {
+    padding: 17px;
+  }
+  .horizon-panel-head {
+    margin-bottom: 15px;
+  }
+  .horizon-panel h2 {
+    font-size: 23px;
+  }
+  .horizon-panel-head button {
+    padding: 10px;
+    white-space: nowrap;
+  }
+  .horizon-dialog {
+    padding: 10px;
+  }
+  .horizon-dialog-body {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .horizon-board {
+    padding: 10px;
+    gap: 10px;
+  }
+  .horizon-emblem canvas {
+    width: 42px;
+    height: 39px;
+  }
+  .horizon-slider {
+    gap: 5px;
+  }
+  .horizon-notch {
+    height: 26px;
+  }
+  .horizon-notch::before {
+    top: 12px;
+  }
+  .horizon-notch.selected::after {
+    top: 0;
+  }
+  .horizon-dialog-body aside {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .horizon-dialog-body aside p,
+  .horizon-dialog-body blockquote {
+    grid-column: 1 / -1;
+    font-size: 14px;
+  }
+  .mechanism aside p:nth-child(2) {
+    display: none;
+  }
+  .horizon-feedback {
+    min-height: 32px;
+  }
+  .horizon-clue {
+    grid-column: 1 / -1;
+  }
+  .horizon-relief-image {
+    width: 220px;
+    margin: auto;
+  }
+}
+@media (max-height: 500px) {
+  .horizon-ui header {
+    padding: 10px 18px;
+  }
+  .horizon-ui h1 {
+    font-size: 20px;
+  }
+  .horizon-ui footer {
+    padding: 10px 18px;
+    grid-template-columns: 1fr auto;
+  }
+  .horizon-story small,
+  .horizon-pan {
+    display: none;
+  }
+  .horizon-story p {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  .horizon-ui footer button {
+    padding: 8px 12px;
+  }
+  .horizon-dialog {
+    padding: 8px;
+  }
+  .horizon-panel {
+    padding: 12px 20px;
+  }
+  .horizon-panel-head {
+    margin-bottom: 8px;
+  }
+  .horizon-panel h2 {
+    font-size: 22px;
+  }
+  .horizon-dialog-body {
+    gap: 20px;
+    grid-template-columns: 1.3fr 1fr;
+  }
+  .horizon-board {
+    padding: 6px 12px;
+    gap: 12px;
+  }
+  .horizon-emblem {
+    display: none;
+  }
+  .horizon-slider {
+    gap: 3px;
+  }
+  .horizon-notch {
+    height: 21px;
+  }
+  .horizon-notch::before {
+    top: 10px;
+  }
+  .horizon-notch.selected::after {
+    width: 21px;
+    height: 21px;
+    left: calc(50% - 10px);
+    top: 0;
+  }
+  .horizon-dialog-body aside {
+    gap: 6px;
+  }
+  .horizon-dialog-body p {
+    font-size: 12px;
+  }
+  .mechanism aside p:nth-child(2) {
+    display: none;
+  }
+  .horizon-ui .horizon-hint,
+  .horizon-ui .horizon-clue {
+    min-height: 44px;
+    padding: 6px;
+  }
+  .horizon-feedback {
+    min-height: 24px;
+    font-size: 12px !important;
+  }
+  .horizon-relief-image {
+    width: 240px;
+    max-height: 240px;
+    margin: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .horizon-dialog {
+    backdrop-filter: none;
+  }
+}
+@media (max-width: 600px) and (min-height: 501px) and (max-height: 700px) {
+  .horizon-panel {
+    padding: 12px;
+  }
+  .horizon-panel-head {
+    margin-bottom: 8px;
+  }
+  .horizon-panel h2 {
+    font-size: 20px;
+  }
+  .horizon-board {
+    padding: 4px 7px;
+  }
+  .horizon-emblem canvas {
+    width: 28px;
+    height: 26px;
+  }
+  .horizon-notch {
+    height: 16px;
+  }
+  .horizon-notch::before {
+    top: 8px;
+  }
+  .horizon-notch.selected::after {
+    width: 16px;
+    height: 16px;
+    left: calc(50% - 8px);
+  }
+  .horizon-dialog-body {
+    gap: 8px;
+  }
+  .horizon-dialog-body aside p {
+    font-size: 12px;
+  }
+  .horizon-relief-image {
+    width: 170px;
+  }
+  .horizon-slider {
+    gap: 3px;
+  }
+  .horizon-feedback {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    min-height: 50px;
+  }
+}
