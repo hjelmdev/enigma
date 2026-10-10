@@ -15,6 +15,22 @@ Purpose: keep artistic quality high while minimizing expensive context and prese
 
 These are hypotheses to measure, not permanent claims about relative model ability. Keep track of iterations, rework, quality, elapsed time and usage rather than optimizing token price alone.
 
+## Required preflight for substantial features
+
+Before substantial implementation, lead writes a **small task map** (in the task log or chat; no big planning ceremony):
+- Creative / high-risk work retained by Opus, with reason.
+- Bounded integrations assigned to Sonnet, with stable interfaces.
+- Independent tests, fixtures, schema/data typing and routine changes assigned to Haiku, with explicit file ownership.
+- Integration order, checkpoints, and which verifications the lead will personally perform.
+
+**Default delegation policy:** when a task is already specified, routine unit tests and simple implementation go to named Haiku agents; bounded multi-file systems go to named Sonnet integration agents. Do not assign a generic Sonnet agent when a named specialist fits. Original room composition, puzzle reasoning and art approval remain with Opus. An Opus lead should not silently absorb an entire test suite or persistence/UI scaffolding merely because it can write them.
+
+Delegate once interfaces and acceptance criteria are stable, rather than waiting until all production code is complete. Batch related tiny tasks to avoid agent overhead; parallelize only with non-overlapping edits. Stop or escalate after one unsuccessful low-cost attempt if rework risks becoming costly.
+
+### End-of-task delegation audit
+
+Include a short table of agent/model, concrete responsibility, changed files, verification, and any rework. Also list any substantial implementation tasks kept by the lead and explain why. Separate **measured session usage** from **inferred costs**; do not optimize to a fixed delegation percentage. Evaluate quality and rework alongside input/output/cache tokens where telemetry exists.
+
 ## Task contract template
 
 **Goal:** one measurable outcome.
