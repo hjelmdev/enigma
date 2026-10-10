@@ -10,7 +10,17 @@ export type AudioCue =
   | 'stone-rumble'
   | 'stone-slide'
   | 'stone-settle'
-  | 'cool-air';
+  | 'cool-air'
+  // Chapter 1 hall
+  | 'stone-slide-small'
+  | 'stone-settle-small'
+  | 'stone-thud'
+  | 'mechanism-click'
+  | 'weight-clink'
+  | 'lever-pull'
+  | 'scale-unlock'
+  | 'map-awaken'
+  | 'map-pulse';
 
 export function playCue(cue: AudioCue) {
   if (typeof window === 'undefined') return;

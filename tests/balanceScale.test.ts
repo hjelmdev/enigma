@@ -18,7 +18,12 @@ import {
   sideWeight,
   weightOf,
 } from '../src/game/puzzles/balanceScale';
-import type { BalanceConfig, BalancePuzzle, BalanceState, Pieces } from '../src/game/puzzles/balanceScale';
+import type {
+  BalanceConfig,
+  BalancePuzzle,
+  BalanceState,
+  Pieces,
+} from '../src/game/puzzles/balanceScale';
 
 const CONFIG = FIRST_HALL_BALANCE;
 const RETRY_SAME: BalanceConfig = { ...CONFIG, attemptPolicy: 'retry-same' };
@@ -33,18 +38,29 @@ function withSolutions(p: BalancePuzzle): BalancePuzzle {
   return { ...p, solutions: allSolutions(p.weights, p.target, p.inventory) };
 }
 
-function stateWith(seed: number, attempt: number, placed: Pieces): BalanceState {
+function stateWith(
+  seed: number,
+  attempt: number,
+  placed: Pieces,
+): BalanceState {
   return { seed, attempt, placed: { ...placed }, solved: false };
 }
 
 /** Independent enumeration of every selection within the shelf, weighed by hand. */
-function bruteForceSolutions(weights: Pieces, target: number, inventory: Pieces): Pieces[] {
-  const ranges = WEIGHT_KINDS.map((k) => Array.from({ length: inventory[k] + 1 }, (_, i) => i));
+function bruteForceSolutions(
+  weights: Pieces,
+  target: number,
+  inventory: Pieces,
+): Pieces[] {
+  const ranges = WEIGHT_KINDS.map((k) =>
+    Array.from({ length: inventory[k] + 1 }, (_, i) => i),
+  );
   const out: Pieces[] = [];
   for (const s of ranges[0])
     for (const f of ranges[1])
       for (const l of ranges[2]) {
-        const weight = s * weights.scarab + f * weights.falcon + l * weights.lotus;
+        const weight =
+          s * weights.scarab + f * weights.falcon + l * weights.lotus;
         if (s + f + l > 0 && weight === target) out.push(pieces(s, f, l));
       }
   return out;
@@ -56,7 +72,9 @@ describe('symbolic relations', () => {
   it('every relation in the authored puzzle balances under its weights', () => {
     const p = authoredPuzzle();
     for (const c of p.relations) {
-      expect(sideWeight(c.left, p.weights, p.target)).toBe(sideWeight(c.right, p.weights, p.target));
+      expect(sideWeight(c.left, p.weights, p.target)).toBe(
+        sideWeight(c.right, p.weights, p.target),
+      );
     }
     expect(weightOf(p.targetPieces, p.weights)).toBe(p.target);
   });
@@ -65,7 +83,9 @@ describe('symbolic relations', () => {
     for (let seed = 1; seed <= 30; seed++) {
       const p = generateBalancePuzzle(CONFIG, seed);
       for (const c of p.relations) {
-        expect(sideWeight(c.left, p.weights, p.target)).toBe(sideWeight(c.right, p.weights, p.target));
+        expect(sideWeight(c.left, p.weights, p.target)).toBe(
+          sideWeight(c.right, p.weights, p.target),
+        );
       }
     }
   });
@@ -79,8 +99,12 @@ describe('allSolutions', () => {
         for (let f = 0; f <= 3; f++)
           for (let l = 0; l <= 4; l++) {
             const inventory = pieces(s, f, l);
-            const got = allSolutions(weights, target, inventory).map(keyOf).sort();
-            const want = bruteForceSolutions(weights, target, inventory).map(keyOf).sort();
+            const got = allSolutions(weights, target, inventory)
+              .map(keyOf)
+              .sort();
+            const want = bruteForceSolutions(weights, target, inventory)
+              .map(keyOf)
+              .sort();
             expect(got).toEqual(want);
           }
     }
@@ -139,25 +163,33 @@ describe('checkPuzzle rejects invalid candidates', () => {
     const p = withSolutions({ ...base, inventory: pieces(2, 2, 4) });
     const result = checkPuzzle(p, CONFIG);
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain('vessel composition can be copied straight from the shelf');
+    expect(result.errors).toContain(
+      'vessel composition can be copied straight from the shelf',
+    );
   });
 
   it('rejects a shelf whose total weighs exactly the vessel', () => {
     // 1 scarab + 3 lotus = 6 = target.
     const p = withSolutions({ ...base, inventory: pieces(1, 0, 3) });
-    expect(checkPuzzle(p).errors).toContain('the whole shelf balances (trivial)');
+    expect(checkPuzzle(p).errors).toContain(
+      'the whole shelf balances (trivial)',
+    );
   });
 
   it('rejects relations that leave a weight ratio undetermined', () => {
     const p = withSolutions({ ...base, relations: [base.relations[0]] });
     const result = checkPuzzle(p, CONFIG);
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain('relations do not determine every weight ratio');
+    expect(result.errors).toContain(
+      'relations do not determine every weight ratio',
+    );
   });
 
   it('rejects an unbalanced relation', () => {
     const relations = base.relations.map((c, i) =>
-      i === 1 ? { left: c.left, right: { pieces: pieces(0, 2, 1), target: 0 } } : c,
+      i === 1
+        ? { left: c.left, right: { pieces: pieces(0, 2, 1), target: 0 } }
+        : c,
     );
     const result = checkPuzzle(withSolutions({ ...base, relations }));
     expect(result.ok).toBe(false);
@@ -165,7 +197,9 @@ describe('checkPuzzle rejects invalid candidates', () => {
   });
 
   it('rejects a vessel relation that does not balance', () => {
-    const result = checkPuzzle(withSolutions({ ...base, targetPieces: pieces(1, 0, 0) }));
+    const result = checkPuzzle(
+      withSolutions({ ...base, targetPieces: pieces(1, 0, 0) }),
+    );
     expect(result.errors).toContain('vessel relation does not balance');
   });
 
@@ -183,19 +217,21 @@ describe('checkPuzzle rejects invalid candidates', () => {
   });
 
   it('rejects stale stored solutions', () => {
-    expect(checkPuzzle({ ...base, solutions: [] }).errors).toContain('stored solutions are stale');
+    expect(checkPuzzle({ ...base, solutions: [] }).errors).toContain(
+      'stored solutions are stale',
+    );
   });
 
   it('rejects more solutions than the configured maximum', () => {
-    expect(checkPuzzle(base, { depth: CONFIG.depth, maxSolutions: 3 }).errors).toContain(
-      'too many solutions',
-    );
+    expect(
+      checkPuzzle(base, { depth: CONFIG.depth, maxSolutions: 3 }).errors,
+    ).toContain('too many solutions');
   });
 
   it('rejects a substitution depth outside the configured difficulty', () => {
-    expect(checkPuzzle(base, { depth: [2, 2], maxSolutions: 5 }).errors).toContain(
-      'substitution depth outside configured difficulty',
-    );
+    expect(
+      checkPuzzle(base, { depth: [2, 2], maxSolutions: 5 }).errors,
+    ).toContain('substitution depth outside configured difficulty');
   });
 });
 
@@ -211,7 +247,9 @@ describe('generator', () => {
 
   it('is deterministic per seed', () => {
     for (const seed of [1, 42, 4096]) {
-      expect(generateBalancePuzzle(CONFIG, seed)).toEqual(generateBalancePuzzle(CONFIG, seed));
+      expect(generateBalancePuzzle(CONFIG, seed)).toEqual(
+        generateBalancePuzzle(CONFIG, seed),
+      );
     }
   });
 
@@ -219,7 +257,9 @@ describe('generator', () => {
     const seen = new Set<string>();
     for (let attempt = 1; attempt <= 12; attempt++) {
       const p = puzzleFor(CONFIG, { seed: 1234, attempt });
-      seen.add(JSON.stringify([p.weights, p.targetPieces, p.inventory, p.relations]));
+      seen.add(
+        JSON.stringify([p.weights, p.targetPieces, p.inventory, p.relations]),
+      );
     }
     expect(seen.size).toBeGreaterThanOrEqual(6);
   });
@@ -262,11 +302,20 @@ describe('addWeight and removeWeight', () => {
 
   it('gives no feedback: the state exposes only its persisted fields', () => {
     const state = addWeight(createBalanceState(5), p, 'lotus');
-    expect(Object.keys(state).sort()).toEqual(['attempt', 'placed', 'seed', 'solved']);
+    expect(Object.keys(state).sort()).toEqual([
+      'attempt',
+      'placed',
+      'seed',
+      'solved',
+    ]);
   });
 
   it('does not change a solved state', () => {
-    const solved: BalanceState = { ...createBalanceState(5), placed: pieces(1, 0, 3), solved: true };
+    const solved: BalanceState = {
+      ...createBalanceState(5),
+      placed: pieces(1, 0, 3),
+      solved: true,
+    };
     expect(addWeight(solved, p, 'lotus')).toBe(solved);
     expect(removeWeight(solved, 'scarab')).toBe(solved);
   });
@@ -366,7 +415,11 @@ describe('pullLever on a wrong weighing (reroll-on-fail)', () => {
 describe('persistence', () => {
   it('restoring a JSON round-tripped state yields the same puzzle and state', () => {
     const wrong = pullLever(CONFIG, stateWith(77, 0, pieces(1, 0, 0))).state;
-    const placedState = addWeight(addWeight(wrong, puzzleFor(CONFIG, wrong), 'lotus'), puzzleFor(CONFIG, wrong), 'lotus');
+    const placedState = addWeight(
+      addWeight(wrong, puzzleFor(CONFIG, wrong), 'lotus'),
+      puzzleFor(CONFIG, wrong),
+      'lotus',
+    );
     const saved = JSON.parse(JSON.stringify(placedState));
     const restored = restoreBalanceState(CONFIG, saved, 0);
 
@@ -375,7 +428,12 @@ describe('persistence', () => {
   });
 
   it('clamps placed counts to the inventory of the puzzle for that attempt', () => {
-    const raw = { seed: 5, attempt: 0, placed: { scarab: 99, falcon: -3, lotus: 9 }, solved: false };
+    const raw = {
+      seed: 5,
+      attempt: 0,
+      placed: { scarab: 99, falcon: -3, lotus: 9 },
+      solved: false,
+    };
     const restored = restoreBalanceState(CONFIG, raw, 0);
     expect(restored.placed).toEqual(pieces(1, 0, 4));
   });
@@ -393,24 +451,43 @@ describe('persistence', () => {
   it('drops non-integer or wrong-typed placed counts to zero', () => {
     const restored = restoreBalanceState(
       CONFIG,
-      { seed: 5, attempt: 0, placed: { scarab: 1.5, falcon: 'two', lotus: null }, solved: false },
+      {
+        seed: 5,
+        attempt: 0,
+        placed: { scarab: 1.5, falcon: 'two', lotus: null },
+        solved: false,
+      },
       0,
     );
     expect(restored.placed).toEqual(emptyPieces());
   });
 
   it('uses the fallback seed when the stored seed is missing or not finite, and attempt 0 for bad attempts', () => {
-    const noSeed = restoreBalanceState(CONFIG, { attempt: -2, placed: {}, solved: false }, 31);
+    const noSeed = restoreBalanceState(
+      CONFIG,
+      { attempt: -2, placed: {}, solved: false },
+      31,
+    );
     expect(noSeed.seed).toBe(31);
     expect(noSeed.attempt).toBe(0);
-    const badSeed = restoreBalanceState(CONFIG, { seed: Number.NaN, attempt: 1.5 }, 31);
+    const badSeed = restoreBalanceState(
+      CONFIG,
+      { seed: Number.NaN, attempt: 1.5 },
+      31,
+    );
     expect(badSeed.seed).toBe(31);
     expect(badSeed.attempt).toBe(0);
   });
 
   it('keeps the solved flag only when it is exactly true', () => {
-    expect(restoreBalanceState(CONFIG, { seed: 5, attempt: 0, solved: 'yes' }, 0).solved).toBe(false);
-    expect(restoreBalanceState(CONFIG, { seed: 5, attempt: 0, solved: true }, 0).solved).toBe(true);
+    expect(
+      restoreBalanceState(CONFIG, { seed: 5, attempt: 0, solved: 'yes' }, 0)
+        .solved,
+    ).toBe(false);
+    expect(
+      restoreBalanceState(CONFIG, { seed: 5, attempt: 0, solved: true }, 0)
+        .solved,
+    ).toBe(true);
   });
 
   it('garbage input falls back to a fresh state for the fallback seed', () => {

@@ -108,11 +108,7 @@ export interface LeverResult {
 
 // -- Small helpers -------------------------------------------------------------
 
-export function pieces(
-  scarab = 0,
-  falcon = 0,
-  lotus = 0,
-): Pieces {
+export function pieces(scarab = 0, falcon = 0, lotus = 0): Pieces {
   return { scarab, falcon, lotus };
 }
 
@@ -247,7 +243,10 @@ export function substitutionDepth(
   const rules: Array<[Pieces, Pieces]> = [];
   for (const c of relations) {
     if (c.left.target || c.right.target) continue;
-    rules.push([c.left.pieces, c.right.pieces], [c.right.pieces, c.left.pieces]);
+    rules.push(
+      [c.left.pieces, c.right.pieces],
+      [c.right.pieces, c.left.pieces],
+    );
   }
   const seen = new Set([key(start)]);
   let frontier = [start];
@@ -298,9 +297,7 @@ export function checkPuzzle(
   if (!relationsDetermineRatios(p.relations))
     errors.push('relations do not determine every weight ratio');
   for (const k of WEIGHT_KINDS)
-    if (
-      !p.relations.some((c) => c.left.pieces[k] > 0 || c.right.pieces[k] > 0)
-    )
+    if (!p.relations.some((c) => c.left.pieces[k] > 0 || c.right.pieces[k] > 0))
       errors.push(`${k} never appears in a relation`);
   if (fits(p.targetPieces, p.inventory))
     errors.push('vessel composition can be copied straight from the shelf');
@@ -346,10 +343,7 @@ export const FIRST_HALL_BALANCE: BalanceConfig = {
   },
 };
 
-function finish(
-  seed: number,
-  a: AuthoredBalance,
-): BalancePuzzle {
+function finish(seed: number, a: AuthoredBalance): BalancePuzzle {
   const target = weightOf(a.targetPieces, a.weights);
   return {
     seed,
@@ -362,8 +356,7 @@ function finish(
     })),
     inventory: { ...a.inventory },
     solutions: allSolutions(a.weights, target, a.inventory),
-    depth:
-      substitutionDepth(a.targetPieces, a.relations, a.inventory) ?? -1,
+    depth: substitutionDepth(a.targetPieces, a.relations, a.inventory) ?? -1,
   };
 }
 
@@ -479,7 +472,10 @@ export function addWeight(
 ): BalanceState {
   if (state.solved || state.placed[kind] >= puzzle.inventory[kind])
     return state;
-  return { ...state, placed: { ...state.placed, [kind]: state.placed[kind] + 1 } };
+  return {
+    ...state,
+    placed: { ...state.placed, [kind]: state.placed[kind] + 1 },
+  };
 }
 
 /** Returns one weight from the pan to the shelf. No feedback is produced. */
@@ -488,7 +484,10 @@ export function removeWeight(
   kind: WeightKind,
 ): BalanceState {
   if (state.solved || state.placed[kind] <= 0) return state;
-  return { ...state, placed: { ...state.placed, [kind]: state.placed[kind] - 1 } };
+  return {
+    ...state,
+    placed: { ...state.placed, [kind]: state.placed[kind] - 1 },
+  };
 }
 
 /**
@@ -502,13 +501,26 @@ export function pullLever(
 ): LeverResult {
   const judged = puzzleFor(config, state);
   if (state.solved)
-    return { outcome: 'balanced', state, judged, puzzle: judged, rerolled: false };
+    return {
+      outcome: 'balanced',
+      state,
+      judged,
+      puzzle: judged,
+      rerolled: false,
+    };
   const placed = weightOf(state.placed, judged.weights);
   if (placed === judged.target && countPieces(state.placed) > 0) {
     const next = { ...state, solved: true };
-    return { outcome: 'balanced', state: next, judged, puzzle: judged, rerolled: false };
+    return {
+      outcome: 'balanced',
+      state: next,
+      judged,
+      puzzle: judged,
+      rerolled: false,
+    };
   }
-  const outcome: LeverOutcome = placed < judged.target ? 'too-light' : 'too-heavy';
+  const outcome: LeverOutcome =
+    placed < judged.target ? 'too-light' : 'too-heavy';
   if (config.attemptPolicy === 'reroll-on-fail') {
     const next: BalanceState = {
       ...state,
@@ -540,7 +552,9 @@ export function restoreBalanceState(
       ? r.seed >>> 0
       : fallbackSeed >>> 0;
   const attempt =
-    typeof r.attempt === 'number' && Number.isInteger(r.attempt) && r.attempt >= 0
+    typeof r.attempt === 'number' &&
+    Number.isInteger(r.attempt) &&
+    r.attempt >= 0
       ? Math.min(r.attempt, 1_000_000)
       : 0;
   const puzzle = puzzleFor(config, { seed, attempt });

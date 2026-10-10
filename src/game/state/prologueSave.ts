@@ -171,7 +171,8 @@ function sanitizeHall(raw: unknown): HallSave {
       placed[kind] = nonNegInt(placedRaw[kind], 0, MAX_WEIGHT_COUNT);
     hall.balance = {
       seed: Math.trunc(
-        typeof raw.balance.seed === 'number' && Number.isFinite(raw.balance.seed)
+        typeof raw.balance.seed === 'number' &&
+          Number.isFinite(raw.balance.seed)
           ? raw.balance.seed
           : 0,
       ),

@@ -15,7 +15,12 @@ import {
   slideDirection,
   validateConfig,
 } from '../src/game/puzzles/slidingTiles';
-import type { Cells, Dir, SlidingConfig, SlidingState } from '../src/game/puzzles/slidingTiles';
+import type {
+  Cells,
+  Dir,
+  SlidingConfig,
+  SlidingState,
+} from '../src/game/puzzles/slidingTiles';
 
 /** Solved arrangement: tiles 0..n-2 in reading order, blank bottom-right. */
 function goalOf(rows: number, cols: number): number[] {
@@ -26,7 +31,9 @@ function goalOf(rows: number, cols: number): number[] {
 /** Arrangement with the blank at `blank` and tiles in reading order elsewhere. */
 function blankAt(rows: number, cols: number, blank: number): number[] {
   let next = 0;
-  return Array.from({ length: rows * cols }, (_, i) => (i === blank ? EMPTY : next++));
+  return Array.from({ length: rows * cols }, (_, i) =>
+    i === blank ? EMPTY : next++,
+  );
 }
 
 function makeConfig(
@@ -233,21 +240,27 @@ describe('applyEmptyMoves', () => {
     const goal = goalOf(3, 3);
     // Blank starts bottom-right, so down and right are off-board.
     expect(() => applyEmptyMoves(goal, 3, 3, ['down'])).toThrow(/illegal step/);
-    expect(() => applyEmptyMoves(goal, 3, 3, ['right'])).toThrow(/illegal step/);
+    expect(() => applyEmptyMoves(goal, 3, 3, ['right'])).toThrow(
+      /illegal step/,
+    );
   });
 
   it('throws on a 3x4 walk that would wrap from the last column into the next row', () => {
     // Blank bottom-right at 11. Up twice reaches index 3 (top-right corner).
     const goal = goalOf(3, 4);
-    expect(() => applyEmptyMoves(goal, 3, 4, ['up', 'up', 'right'])).toThrow(/illegal step/);
-    // Same column count, but index 0 has no left neighbour on the same row.
-    expect(() => applyEmptyMoves(goal, 3, 4, ['up', 'left', 'left', 'left', 'up', 'left'])).toThrow(
+    expect(() => applyEmptyMoves(goal, 3, 4, ['up', 'up', 'right'])).toThrow(
       /illegal step/,
     );
+    // Same column count, but index 0 has no left neighbour on the same row.
+    expect(() =>
+      applyEmptyMoves(goal, 3, 4, ['up', 'left', 'left', 'left', 'up', 'left']),
+    ).toThrow(/illegal step/);
   });
 
   it('throws on invalid cells', () => {
-    expect(() => applyEmptyMoves([0, 1, -1, -1], 2, 2, [])).toThrow(/invalid cells/);
+    expect(() => applyEmptyMoves([0, 1, -1, -1], 2, 2, [])).toThrow(
+      /invalid cells/,
+    );
   });
 });
 
@@ -336,7 +349,11 @@ describe('minSolutionDistance', () => {
 });
 
 /** Independent breadth-first oracle; neighbours computed here, not via production code. */
-function bfsDistances(rows: number, cols: number, maxDepth: number): Map<string, number> {
+function bfsDistances(
+  rows: number,
+  cols: number,
+  maxDepth: number,
+): Map<string, number> {
   const goal = goalOf(rows, cols);
   const dist = new Map<string, number>([[goal.join(','), 0]]);
   let frontier: number[][] = [goal];
@@ -415,7 +432,12 @@ describe('validateConfig', () => {
 });
 
 describe('serializeState and restoreState', () => {
-  const config = makeConfig(3, 4, applyEmptyMoves(goalOf(3, 4), 3, 4, ['up', 'left']), 6);
+  const config = makeConfig(
+    3,
+    4,
+    applyEmptyMoves(goalOf(3, 4), 3, 4, ['up', 'left']),
+    6,
+  );
 
   it('round-trips a mid-game state through JSON', () => {
     // Walk left the blank at 6; index 7 is its right-hand neighbour.
@@ -449,42 +471,72 @@ describe('serializeState and restoreState', () => {
 
   it('falls back when cells are malformed or not a valid arrangement', () => {
     const fallback = createState(config);
-    expect(restoreState(config, { cells: 'x', movesLeft: 3, solved: false })).toEqual(fallback);
-    expect(restoreState(config, { movesLeft: 3, solved: false })).toEqual(fallback);
     expect(
-      restoreState(config, { cells: [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1], movesLeft: 3, solved: false }),
+      restoreState(config, { cells: 'x', movesLeft: 3, solved: false }),
+    ).toEqual(fallback);
+    expect(restoreState(config, { movesLeft: 3, solved: false })).toEqual(
+      fallback,
+    );
+    expect(
+      restoreState(config, {
+        cells: [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1],
+        movesLeft: 3,
+        solved: false,
+      }),
     ).toEqual(fallback);
   });
 
   it('falls back for out-of-range or non-integer movesLeft on an unsolved state', () => {
     const fallback = createState(config);
     const cells = blankAt(3, 4, 3);
-    expect(restoreState(config, { cells, movesLeft: 0, solved: false })).toEqual(fallback);
-    expect(restoreState(config, { cells, movesLeft: 7, solved: false })).toEqual(fallback);
-    expect(restoreState(config, { cells, movesLeft: 2.5, solved: false })).toEqual(fallback);
+    expect(
+      restoreState(config, { cells, movesLeft: 0, solved: false }),
+    ).toEqual(fallback);
+    expect(
+      restoreState(config, { cells, movesLeft: 7, solved: false }),
+    ).toEqual(fallback);
+    expect(
+      restoreState(config, { cells, movesLeft: 2.5, solved: false }),
+    ).toEqual(fallback);
     expect(restoreState(config, { cells, solved: false })).toEqual(fallback);
   });
 
   it('falls back when an unsolved save is the goal itself or unreachable', () => {
     const fallback = createState(config);
     const goal = goalOf(3, 4);
-    expect(restoreState(config, { cells: goal, movesLeft: 3, solved: false })).toEqual(fallback);
+    expect(
+      restoreState(config, { cells: goal, movesLeft: 3, solved: false }),
+    ).toEqual(fallback);
     const swapped = [...goal];
     swapped[0] = goal[1];
     swapped[1] = goal[0];
-    expect(restoreState(config, { cells: swapped, movesLeft: 3, solved: false })).toEqual(fallback);
+    expect(
+      restoreState(config, { cells: swapped, movesLeft: 3, solved: false }),
+    ).toEqual(fallback);
   });
 
   it('a solved save with an arrangement that is not the goal falls back', () => {
     const fallback = createState(config);
-    expect(restoreState(config, { cells: blankAt(3, 4, 3), movesLeft: 3, solved: true })).toEqual(
-      fallback,
-    );
+    expect(
+      restoreState(config, {
+        cells: blankAt(3, 4, 3),
+        movesLeft: 3,
+        solved: true,
+      }),
+    ).toEqual(fallback);
   });
 
   it('a solved save with a bad movesLeft keeps the solution and resets the budget', () => {
     const goal = goalOf(3, 4);
-    const restored = restoreState(config, { cells: goal, movesLeft: 'x', solved: true });
-    expect(restored).toEqual({ cells: goal, movesLeft: config.moveBudget, solved: true });
+    const restored = restoreState(config, {
+      cells: goal,
+      movesLeft: 'x',
+      solved: true,
+    });
+    expect(restored).toEqual({
+      cells: goal,
+      movesLeft: config.moveBudget,
+      solved: true,
+    });
   });
 });

@@ -215,7 +215,9 @@ export class TitleScene extends Phaser.Scene {
 
   private continueGame() {
     const save = progress.current();
-    if (save.stage === 'chapter1-gate') return this.leave('chapter1-gate');
+    if (save.stage === 'hall') return this.leave('hall');
+    if (save.stage === 'corridor' || save.stage === 'chapter1-gate')
+      return this.leave('corridor');
     if (stageIndex(save.stage) >= stageIndex('exterior'))
       return this.leave('exterior');
     this.leave('intro', { step: save.stage });

@@ -10,7 +10,7 @@ Implements `docs/story/CHAPTER_1_PROLOGUE.md` (title → attic → miniature →
 | `intro`         | `src/game/scenes/IntroScene.ts`        | Attic and heirloom box, miniature inspection (drag or buttons), grandfather's note, map flight and desert crossing. "Skip intro" appears once the intro has been seen. |
 | `exterior`      | `src/game/scenes/ExteriorScene.ts`     | 1280×360 panorama with parallax, hotspots, hints, inventory, the entrance reveal and the open passage.                                                                 |
 | `sun-puzzle`    | `src/game/scenes/SunPuzzleScene.ts`    | Close-up at the pedestal: turn/tilt the miniature until the reflected ray rests on the carved eye.                                                                     |
-| `chapter1-gate` | `src/game/scenes/Chapter1GateScene.ts` | Labelled hand-off to the future entrance hall; go back out or return to title.                                                                                         |
+| `chapter1-gate` | `src/game/scenes/Chapter1GateScene.ts` | Archived hand-off screen (reachable with `?scene=chapter1-gate`). The open door now leads to the Chapter 1 corridor; see `ENTRANCE_HALL_IMPLEMENTATION.md`.            |
 
 The earlier experiments (`menu`, `chamber`, `visual-lab`) are unchanged and reachable from Settings → "Öppna tidigare experiment" or `?scene=menu`.
 

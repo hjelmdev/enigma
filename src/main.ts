@@ -1,16 +1,22 @@
 import Phaser from 'phaser';
 import './style.css';
 import './game/prologue/prologue.css';
+import './game/hall/hall.css';
 import { ChamberScene } from './game/scenes/ChamberScene';
+import { BalancePuzzleScene } from './game/scenes/BalancePuzzleScene';
 import { Chapter1GateScene } from './game/scenes/Chapter1GateScene';
+import { CorridorScene } from './game/scenes/CorridorScene';
 import { ExteriorScene } from './game/scenes/ExteriorScene';
+import { HallScene } from './game/scenes/HallScene';
 import { IntroScene } from './game/scenes/IntroScene';
 import { MenuScene } from './game/scenes/MenuScene';
+import { ReliefPuzzleScene } from './game/scenes/ReliefPuzzleScene';
 import { SunPuzzleScene } from './game/scenes/SunPuzzleScene';
 import { TitleScene } from './game/scenes/TitleScene';
 import { VisualLabScene } from './game/scenes/VisualLabScene';
 
-// Review shortcuts: ?scene=exterior|sun-puzzle|intro|chapter1-gate|menu and
+// Review shortcuts: ?scene=exterior|sun-puzzle|intro|chapter1-gate|corridor|hall|relief-puzzle|
+// balance-puzzle|menu and
 // ?review=reveal (replays the entrance reveal), ?renderer=canvas (no WebGL).
 // The prologue starts at title.
 const params = new URLSearchParams(window.location.search);
@@ -20,6 +26,10 @@ const scenes: Array<[string, Phaser.Types.Scenes.SceneType]> = [
   ['exterior', ExteriorScene],
   ['sun-puzzle', SunPuzzleScene],
   ['chapter1-gate', Chapter1GateScene],
+  ['corridor', CorridorScene],
+  ['hall', HallScene],
+  ['relief-puzzle', ReliefPuzzleScene],
+  ['balance-puzzle', BalancePuzzleScene],
   ['menu', MenuScene],
   ['chamber', ChamberScene],
   ['visual-lab', VisualLabScene],

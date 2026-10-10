@@ -673,7 +673,7 @@ export class ExteriorScene extends Phaser.Scene {
         ease: 'Cubic.easeIn',
         onUpdate: () => cam.setZoom(this.view.zoom),
       });
-      this.leave('chapter1-gate', 900);
+      this.leave('corridor', 900);
     });
   }
 

@@ -1,0 +1,60 @@
+{
+  "$comment": "Shared anchors for the entrance hall. Read by tools/generate-hall-art.mjs (to paint) and by the hall scenes (hotspots, door animation, close-ups). Units: art pixels of the 1600x450 hall panorama, 640x360 corridor and 480x360 close-ups.",
+  "hall": {
+    "width": 1600,
+    "height": 450,
+    "vanish": [800, 275],
+    "wallTop": 62,
+    "floorY": 330,
+    "backLeft": 90,
+    "backRight": 1510,
+    "startCenterX": 800,
+    "doors": {
+      "hall-relief-door": {
+        "x": 308,
+        "y": 206,
+        "width": 64,
+        "height": 124,
+        "motion": "sink"
+      },
+      "hall-balance-door": {
+        "x": 1238,
+        "y": 206,
+        "width": 64,
+        "height": 124,
+        "motion": "rise"
+      }
+    },
+    "reliefPanel": { "x": 436, "y": 214, "tile": 24, "frame": 10 },
+    "reference": { "x": 192, "y": 214, "width": 72, "height": 72 },
+    "pedestal": { "x": 800, "y": 404 },
+    "niche": { "x": 652, "y": 96, "width": 296, "height": 234 },
+    "balance": { "x": 1112, "baseY": 340, "beamY": 262 },
+    "braziers": [
+      [706, 378],
+      [894, 378]
+    ],
+    "torches": [
+      [572, 214],
+      [1028, 214]
+    ],
+    "lampStands": [
+      [418, 344],
+      [1204, 344]
+    ],
+    "smallLamps": [
+      [228, 318],
+      [1380, 318]
+    ],
+    "flameOffsets": {
+      "braziers": [-50, 7],
+      "torches": [-12, 4],
+      "lampStands": [-96, 4],
+      "smallLamps": [-8, 2]
+    },
+    "shaft": { "top": [800, 64], "topWidth": 22, "bottomWidth": 92 },
+    "columns": [150, 610, 990, 1450]
+  },
+  "corridor": { "width": 640, "height": 360, "vanish": [320, 196] },
+  "closeup": { "width": 480, "height": 360 }
+}

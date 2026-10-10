@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { EXIT, ROOMS, createChapter1Graph, visibleMap } from '../src/game/world/pyramidMap';
+import {
+  EXIT,
+  ROOMS,
+  createChapter1Graph,
+  visibleMap,
+} from '../src/game/world/pyramidMap';
 import type { MapView } from '../src/game/world/pyramidMap';
 import type { WorldSave } from '../src/game/state/prologueSave';
 
@@ -21,12 +26,19 @@ function linkFor(view: MapView, exitId: string) {
 }
 
 const ALL_ROOMS = ['exterior', 'entrance-passage', 'entrance-hall'];
-const ALL_EXITS = [EXIT.entrance, EXIT.passageToHall, EXIT.reliefDoor, EXIT.balanceDoor];
+const ALL_EXITS = [
+  EXIT.entrance,
+  EXIT.passageToHall,
+  EXIT.reliefDoor,
+  EXIT.balanceDoor,
+];
 
 describe('fresh world (only the exterior visited)', () => {
   it('shows only the exterior room, as current, and no links', () => {
     const view = visibleMap(graph, world());
-    expect(view.rooms).toEqual([{ id: 'exterior', kind: 'outside', name: 'Utsidan', current: true }]);
+    expect(view.rooms).toEqual([
+      { id: 'exterior', kind: 'outside', name: 'Utsidan', current: true },
+    ]);
     expect(view.links).toEqual([]);
   });
 
@@ -58,14 +70,21 @@ describe('exit visibility', () => {
     const opened = visibleMap(graph, world({ openedExits: [EXIT.entrance] }));
     expect(linkFor(opened, EXIT.entrance)?.state).toBe('open');
 
-    const traversed = visibleMap(graph, world({ traversedExits: [EXIT.entrance] }));
+    const traversed = visibleMap(
+      graph,
+      world({ traversedExits: [EXIT.entrance] }),
+    );
     expect(linkFor(traversed, EXIT.entrance)?.state).toBe('traversed');
   });
 
   it('traversed takes precedence over opened, which takes precedence over closed', () => {
     const view = visibleMap(
       graph,
-      world({ seenExits: [EXIT.entrance], openedExits: [EXIT.entrance], traversedExits: [EXIT.entrance] }),
+      world({
+        seenExits: [EXIT.entrance],
+        openedExits: [EXIT.entrance],
+        traversedExits: [EXIT.entrance],
+      }),
     );
     expect(linkFor(view, EXIT.entrance)?.state).toBe('traversed');
   });
@@ -83,7 +102,10 @@ describe('exit visibility', () => {
       }),
     );
     expect(linkFor(visited, EXIT.entrance)?.to).toBe('entrance-passage');
-    expect(visited.rooms.map((r) => r.id)).toEqual(['exterior', 'entrance-passage']);
+    expect(visited.rooms.map((r) => r.id)).toEqual([
+      'exterior',
+      'entrance-passage',
+    ]);
   });
 
   it('a seen passage-to-hall exit from a visited passage stays a stub until the hall is visited', () => {
@@ -111,7 +133,10 @@ describe('hall door stubs', () => {
   };
 
   it('a seen relief door shows as a closed stub that does not reveal a destination', () => {
-    const view = visibleMap(graph, world({ ...inHall, seenExits: [EXIT.reliefDoor] }));
+    const view = visibleMap(
+      graph,
+      world({ ...inHall, seenExits: [EXIT.reliefDoor] }),
+    );
     expect(linkFor(view, EXIT.reliefDoor)).toEqual({
       exitId: EXIT.reliefDoor,
       from: 'entrance-hall',
@@ -121,12 +146,19 @@ describe('hall door stubs', () => {
   });
 
   it('a seen balance door shows as a closed stub, and opening it makes it open', () => {
-    const seen = visibleMap(graph, world({ ...inHall, seenExits: [EXIT.balanceDoor] }));
+    const seen = visibleMap(
+      graph,
+      world({ ...inHall, seenExits: [EXIT.balanceDoor] }),
+    );
     expect(linkFor(seen, EXIT.balanceDoor)?.state).toBe('closed');
 
     const opened = visibleMap(
       graph,
-      world({ ...inHall, seenExits: [EXIT.balanceDoor], openedExits: [EXIT.balanceDoor] }),
+      world({
+        ...inHall,
+        seenExits: [EXIT.balanceDoor],
+        openedExits: [EXIT.balanceDoor],
+      }),
     );
     expect(linkFor(opened, EXIT.balanceDoor)).toEqual({
       exitId: EXIT.balanceDoor,
@@ -146,8 +178,16 @@ describe('hall door stubs', () => {
         traversedExits: [EXIT.balanceDoor],
       }),
     );
-    expect(view.rooms.map((r) => r.id)).toEqual(['exterior', 'entrance-passage', 'entrance-hall']);
-    expect(view.links.filter((l) => l.from === 'entrance-hall').every((l) => l.to === null)).toBe(true);
+    expect(view.rooms.map((r) => r.id)).toEqual([
+      'exterior',
+      'entrance-passage',
+      'entrance-hall',
+    ]);
+    expect(
+      view.links
+        .filter((l) => l.from === 'entrance-hall')
+        .every((l) => l.to === null),
+    ).toBe(true);
   });
 });
 
@@ -162,19 +202,29 @@ describe('room list and current flag', () => {
     );
     expect(view.rooms).toEqual([
       { id: 'exterior', kind: 'outside', name: 'Utsidan', current: false },
-      { id: 'entrance-passage', kind: 'passage', name: 'Ingångsgången', current: true },
+      {
+        id: 'entrance-passage',
+        kind: 'passage',
+        name: 'Ingångsgången',
+        current: true,
+      },
     ]);
   });
 
   it('no room is current when the current room is not among the visited rooms', () => {
-    const view = visibleMap(graph, world({ currentRoom: 'entrance-hall', visitedRooms: ['exterior'] }));
+    const view = visibleMap(
+      graph,
+      world({ currentRoom: 'entrance-hall', visitedRooms: ['exterior'] }),
+    );
     expect(view.rooms.every((r) => !r.current)).toBe(true);
   });
 
   it('room metadata matches the identity table', () => {
     const view = visibleMap(
       graph,
-      world({ visitedRooms: ['exterior', 'entrance-passage', 'entrance-hall'] }),
+      world({
+        visitedRooms: ['exterior', 'entrance-passage', 'entrance-hall'],
+      }),
     );
     for (const room of view.rooms) {
       expect(room.kind).toBe(ROOMS[room.id].kind);
@@ -241,8 +291,13 @@ describe('invariants over every combination of visited rooms and exit flags', ()
         // Links: an exit appears iff it is known and touches a visited room.
         const visitedSet = new Set(visited);
         for (const exit of graph.exits) {
-          const known = seen.includes(exit.id) || opened.includes(exit.id) || traversed.includes(exit.id);
-          const touches = visitedSet.has(exit.from) || (exit.to !== null && visitedSet.has(exit.to));
+          const known =
+            seen.includes(exit.id) ||
+            opened.includes(exit.id) ||
+            traversed.includes(exit.id);
+          const touches =
+            visitedSet.has(exit.from) ||
+            (exit.to !== null && visitedSet.has(exit.to));
           const link = linkFor(view, exit.id);
           if (!known || !touches) {
             expect(link).toBeUndefined();
@@ -250,7 +305,8 @@ describe('invariants over every combination of visited rooms and exit flags', ()
           }
           expect(link).toBeDefined();
           // `to` is revealed only when the destination is visited.
-          const expectedTo = exit.to !== null && visitedSet.has(exit.to) ? exit.to : null;
+          const expectedTo =
+            exit.to !== null && visitedSet.has(exit.to) ? exit.to : null;
           expect(link!.to).toBe(expectedTo);
           // Stub destinations never leak a room id.
           if (link!.to !== null) expect(visitedSet.has(link!.to)).toBe(true);

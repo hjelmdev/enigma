@@ -1,0 +1,192 @@
+/* Chapter 1 hall UI: living map panel and puzzle close-up controls. */
+
+.hall-map {
+  display: grid;
+  gap: 10px;
+}
+
+.hall-map-stage {
+  display: grid;
+  place-items: center;
+}
+
+.hall-map-outer,
+.hall-map-inner {
+  image-rendering: pixelated;
+  display: block;
+}
+
+.hall-map-outer {
+  width: min(240px, 60vw);
+  height: auto;
+}
+
+.hall-map-scroll {
+  width: 100%;
+  max-height: min(56vh, 420px);
+  overflow: auto;
+  border: 1px solid rgba(185, 138, 75, 0.45);
+  background: #0d1022;
+  touch-action: pan-x pan-y;
+}
+
+.hall-map-inner {
+  width: 100%;
+  height: auto;
+}
+
+.hall-map.is-zoomed .hall-map-inner {
+  width: 220%;
+}
+
+.hall-map-tabs .pro-btn[aria-pressed='true'] {
+  border-color: var(--pro-gold);
+  color: var(--pro-gold);
+}
+
+.hall-map-caption {
+  margin: 0;
+  min-height: 2.6em;
+}
+
+.hall-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
+.hall-map-legend li::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.hall-map-legend .is-room::before {
+  background: #ffc86a;
+}
+.hall-map-legend .is-current::before {
+  background: transparent;
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+.hall-map-legend .is-closed::before {
+  background: #b8452f;
+  width: 4px;
+}
+.hall-map-legend .is-open::before {
+  background: #8fe3d6;
+  width: 4px;
+}
+
+/* Close-up puzzle chrome: a bottom bar of large controls. */
+.hall-closeup-bar {
+  position: absolute;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: min(720px, calc(100% - 16px));
+  pointer-events: auto;
+}
+
+.hall-status {
+  position: absolute;
+  left: 50%;
+  top: max(10px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  background: var(--pro-panel);
+  border: 1px solid rgba(185, 138, 75, 0.7);
+  border-radius: 4px;
+  color: #f3e3c3;
+  font-size: var(--pro-text);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.hall-status.is-low {
+  color: #ffb18a;
+  border-color: #c4623a;
+}
+
+.hall-back-btn {
+  position: absolute;
+  left: max(10px, env(safe-area-inset-left));
+  top: max(10px, env(safe-area-inset-top));
+  pointer-events: auto;
+}
+
+.hall-hit {
+  position: absolute;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  border-radius: 6px;
+}
+
+.hall-hit:focus-visible {
+  outline: 3px solid var(--pro-gold);
+  outline-offset: 2px;
+}
+
+.hall-hit[aria-disabled='true'] {
+  cursor: default;
+}
+
+.hall-reference {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: pixelated;
+  border: 3px solid #2a1c22;
+  box-shadow: var(--pro-shadow);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.hall-reference.is-visible {
+  opacity: 1;
+}
+
+.hall-lever-btn {
+  touch-action: none;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.hall-lever-btn .hall-lever-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  transform: scaleX(0);
+  background: rgba(231, 189, 111, 0.35);
+  pointer-events: none;
+}
+
+.pro-icon[hidden] {
+  display: none;
+}
+
+.hall-map [hidden] {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .hall-status {
+    top: calc(max(10px, env(safe-area-inset-top)) + 58px);
+  }
+}

@@ -47,7 +47,11 @@ function isDimension(value: number): boolean {
   return Number.isInteger(value) && value >= 1;
 }
 
-export function validateCells(cells: Cells, rows: number, cols: number): boolean {
+export function validateCells(
+  cells: Cells,
+  rows: number,
+  cols: number,
+): boolean {
   if (!isDimension(rows) || !isDimension(cols)) return false;
   const n = rows * cols;
   if (!Array.isArray(cells) || cells.length !== n) return false;
@@ -105,7 +109,8 @@ export function canSlide(
   cols: number,
   index: number,
 ): boolean {
-  if (!Number.isInteger(index) || index < 0 || index >= cells.length) return false;
+  if (!Number.isInteger(index) || index < 0 || index >= cells.length)
+    return false;
   const empty = emptyIndex(cells);
   if (empty < 0 || index === empty) return false;
   return neighborsOf(empty, rows, cols).includes(index);
@@ -130,7 +135,11 @@ export function slideDirection(
 }
 
 function copyState(state: SlidingState): SlidingState {
-  return { cells: [...state.cells], movesLeft: state.movesLeft, solved: state.solved };
+  return {
+    cells: [...state.cells],
+    movesLeft: state.movesLeft,
+    solved: state.solved,
+  };
 }
 
 export function slide(
@@ -244,7 +253,12 @@ export function applyEmptyMoves(
     else if (move === 'down') targetRow += 1;
     else if (move === 'left') targetCol -= 1;
     else targetCol += 1;
-    if (targetRow < 0 || targetRow >= rows || targetCol < 0 || targetCol >= cols) {
+    if (
+      targetRow < 0 ||
+      targetRow >= rows ||
+      targetCol < 0 ||
+      targetCol >= cols
+    ) {
       throw new Error(`applyEmptyMoves: illegal step ${move} from ${empty}`);
     }
     const target = targetRow * cols + targetCol;
@@ -362,7 +376,12 @@ export function minSolutionDistance(
   let best = -1;
 
   // Returns the smallest f that exceeded `bound` (or Infinity).
-  const search = (g: number, bound: number, blank: number, prev: number): number => {
+  const search = (
+    g: number,
+    bound: number,
+    blank: number,
+    prev: number,
+  ): number => {
     const h = heuristic(work, goalPos, rows, cols);
     const f = g + h;
     if (f > bound) return f;
@@ -401,13 +420,17 @@ export function validateConfig(config: SlidingConfig): {
 } {
   const errors: string[] = [];
   const { rows, cols, moveBudget, initial, goal } = config;
-  if (!Number.isInteger(rows) || rows < 2) errors.push('rows must be an integer >= 2');
-  if (!Number.isInteger(cols) || cols < 2) errors.push('cols must be an integer >= 2');
+  if (!Number.isInteger(rows) || rows < 2)
+    errors.push('rows must be an integer >= 2');
+  if (!Number.isInteger(cols) || cols < 2)
+    errors.push('cols must be an integer >= 2');
   if (!Number.isInteger(moveBudget) || moveBudget < 1) {
     errors.push('moveBudget must be an integer >= 1');
   }
-  if (!validateCells(initial, rows, cols)) errors.push('initial is not a valid arrangement');
-  if (!validateCells(goal, rows, cols)) errors.push('goal is not a valid arrangement');
+  if (!validateCells(initial, rows, cols))
+    errors.push('initial is not a valid arrangement');
+  if (!validateCells(goal, rows, cols))
+    errors.push('goal is not a valid arrangement');
   if (errors.length > 0) return { ok: false, minDistance: null, errors };
 
   if (isSolved(initial, goal)) errors.push('initial must differ from goal');
@@ -429,10 +452,17 @@ export function serializeState(state: SlidingState): {
   movesLeft: number;
   solved: boolean;
 } {
-  return { cells: [...state.cells], movesLeft: state.movesLeft, solved: state.solved };
+  return {
+    cells: [...state.cells],
+    movesLeft: state.movesLeft,
+    solved: state.solved,
+  };
 }
 
-export function restoreState(config: SlidingConfig, raw: unknown): SlidingState {
+export function restoreState(
+  config: SlidingConfig,
+  raw: unknown,
+): SlidingState {
   const fallback = createState(config);
   if (typeof raw !== 'object' || raw === null) return fallback;
   const { cells, movesLeft, solved } = raw as {
