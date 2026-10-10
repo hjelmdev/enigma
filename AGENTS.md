@@ -53,3 +53,9 @@ Follow **docs/ROADMAP.md**. Build the application skeleton, a small linked room 
 ## Git and agent collaboration
 
 Use focused commits and understandable messages. Do not overwrite design decisions with unreviewed ideas. Content proposals should be documented as proposals, not shipped as final canon without approval. It is fine to propose options or ask for a decision when a substantial unknown blocks work.
+
+## Cross-model collaboration and cost-aware handoff
+
+This file is the model-neutral source of coding instructions for Codex/Luna and Claude agents. See `docs/agents/WORKFLOW.md` for bounded task contracts, model routing and GitHub handoffs. Claude-specific agent configuration lives in `CLAUDE.md` and `.claude/agents/` but is not required by Codex.
+
+When Claude limits are reached, continue with Codex/Luna using the last committed task brief, relevant file paths, owned interfaces, acceptance criteria and verification commands. Do not redesign approved visual or puzzle concepts as a side effect of routine implementation. Preserve other agents' branches/experiments and never overwrite concurrent changes. Report tests actually run and unresolved problems, not assumed quality.
