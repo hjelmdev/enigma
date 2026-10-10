@@ -11,6 +11,18 @@ Read `AGENTS.md` for shared project rules (also used by Codex/Luna). Read only t
 - Do not spawn agents for trivial one-step work or create multiple overlapping agents without reason. Avoid large duplicate reads and unnecessary parallelism.
 - Never delegate subjective room art direction, puzzle originality or cinematic quality approval to Haiku.
 
+## Delegation-first planning for substantial tasks
+For a substantial feature (multiple scenes/files, new systems, or expected multi-hour work), **make a short delegation plan before implementing**. Categorize work as:
+1. **Opus-owned:** original game/puzzle design, creative visual direction, distinctive renderer/art generation, crucial architecture, and final visual/playability sign-off.
+2. **Sonnet-owned by default:** bounded multi-file integration, approved UI systems, save/state wiring, and nontrivial debugging after interfaces are defined.
+3. **Haiku-owned by default:** focused unit tests, types, fixtures, manifests, mechanical wiring, documentation synchronization, and narrow code exploration.
+
+Do not use Opus to write routine tests, repetitive scaffolding, or simple state/UI glue **unless** there is a specific reason (e.g. tiny edit, coupling, agent overhead, failed delegation). Prefer spawning a named project agent over a generic agent so its model is explicit; check the actual model used. Before handing work off, define the smallest stable interface and assign non-overlapping file ownership. The lead must review delegated changes and own final integration.
+
+**Do not delegate for the sake of hitting a percentage.** Evaluate opportunity cost, latency, duplicated context, rework and quality. Avoid long-running agents without bounded deliverables. A justified decision to keep an integrated task with Opus is acceptable.
+
+At completion, give a concise **delegation report**: named agents/models used, task and edited files, verification, retries/rework, work retained by lead and why. Distinguish actual agent execution from planned delegation; report unknown usage as unknown. If usage telemetry exists, link to the relevant session rather than inventing costs.
+
 ## Task briefs and context budgets
 Before delegating, supply: goal, exact files or narrowly scoped discovery target, relevant contract, allowed edits, forbidden edits, acceptance criteria, verification commands and concise response format.
 Subagents have separate context. They do NOT inherit the ongoing conversation. Provide only necessary background; favor file paths and symbols over copying entire documents.
