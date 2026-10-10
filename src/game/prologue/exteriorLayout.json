@@ -1,0 +1,46 @@
+{
+  "$comment": "Shared world anchors for the prologue exterior. Read by tools/generate-prologue-art.mjs (to paint) and by the game scenes (hotspots, animation). Units: art pixels of the 1280x360 panorama / 640x360 close-up.",
+  "panorama": {
+    "width": 1280,
+    "height": 360,
+    "groundY": 300,
+    "startCenterX": 626,
+    "pyramid": {
+      "frontLeft": [430, 302],
+      "frontRight": [810, 304],
+      "backRight": [930, 280],
+      "apex": [626, 36]
+    },
+    "door": { "x": 602, "y": 230, "width": 36, "height": 48 },
+    "doorSlide": -40,
+    "eye": { "x": 620, "y": 186, "scale": 2 },
+    "frieze": {
+      "x": 585,
+      "y": 209,
+      "scale": 1,
+      "gap": 2,
+      "glyphs": ["sun", "steps", "eye", "moon"]
+    },
+    "steps": { "x": 592, "y": 278, "width": 56, "count": 3, "rise": 7 },
+    "stele": { "x": 286, "y": 238, "width": 30, "height": 62 },
+    "ruins": { "x": 70, "y": 170, "width": 240, "height": 135 },
+    "pedestal": { "x": 1012, "y": 300, "cradleY": 252 },
+    "obelisk": { "x": 1146, "y": 300 },
+    "jeep": { "x": 1196, "y": 302 }
+  },
+  "closeup": {
+    "width": 640,
+    "height": 360,
+    "facadeBaseY": 260,
+    "apexY": -260,
+    "eye": { "x": 320, "y": 118, "scale": 3 },
+    "frieze": {
+      "y": 152,
+      "scale": 2,
+      "gap": 4,
+      "glyphs": ["sun", "steps", "eye", "moon"]
+    },
+    "door": { "x": 293, "y": 190, "width": 54, "height": 70 },
+    "cradle": { "x": 320, "y": 268 }
+  }
+}
