@@ -184,7 +184,7 @@ export class BalancePuzzleScene extends Phaser.Scene {
       cam.fadeIn(500, 6, 4, 10);
       if (!progress.current().discoveredHotspots.includes('balance-help')) {
         progress.discover('balance-help');
-        this.overlay.caption(HALL_TEXT.balance.help, { position: 'top' });
+        this.overlay.caption(HALL_TEXT.balance.help, { position: 'bottom' });
       }
     });
   }
@@ -302,7 +302,7 @@ export class BalancePuzzleScene extends Phaser.Scene {
         .setOrigin(0)
         .setInteractive({ useHandCursor: true });
       hit.on('pointerup', () =>
-        this.overlay.caption(this.describe(clue), { position: 'top' }),
+        this.overlay.caption(this.describe(clue), { position: 'bottom' }),
       );
       t.add(hit);
     });
@@ -473,7 +473,8 @@ export class BalancePuzzleScene extends Phaser.Scene {
         id: 'help',
         label: 'Hjälp',
         icon: ICONS.hint,
-        onClick: () => o.caption(HALL_TEXT.balance.help, { position: 'top' }),
+        onClick: () =>
+          o.caption(HALL_TEXT.balance.help, { position: 'bottom' }),
       },
       bar,
     );
@@ -554,7 +555,7 @@ export class BalancePuzzleScene extends Phaser.Scene {
     if (this.busy || this.state.solved) return;
     if (countPieces(this.state.placed) === 0) {
       this.setLeverAngle(0, true);
-      this.overlay.caption(HALL_TEXT.balance.empty, { position: 'top' });
+      this.overlay.caption(HALL_TEXT.balance.empty, { position: 'bottom' });
       return;
     }
     this.busy = true;
@@ -601,7 +602,7 @@ export class BalancePuzzleScene extends Phaser.Scene {
           ? HALL_TEXT.balance.tooLight
           : HALL_TEXT.balance.tooHeavy,
         {
-          position: 'top',
+          position: 'bottom',
           next: false,
         },
       );
@@ -626,7 +627,7 @@ export class BalancePuzzleScene extends Phaser.Scene {
         duration: reduce ? 150 : 700,
       });
       await wait(700);
-      this.overlay.caption(HALL_TEXT.balance.rerolled, { position: 'top' });
+      this.overlay.caption(HALL_TEXT.balance.rerolled, { position: 'bottom' });
       this.busy = false;
       this.refresh();
     })();

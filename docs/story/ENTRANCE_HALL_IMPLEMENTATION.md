@@ -25,7 +25,8 @@ Review shortcuts: `?scene=corridor|hall|relief-puzzle|balance-puzzle` (add `&ren
 
 - **Relief:** 3×3 "offering to the sun": a kneeling figure lifts the miniature toward a winged sun whose rays strike its eye; the right column carries the canonical eye/steps/sun signs. Coloured border bands and gold corner rosettes make edges and corners identifiable. The painted reference is on the wall left of the door (and via "Jämför med målningen" in the close-up). Start layout is built by legal moves from the solved picture; optimal solution 16 slides, budget 32 (asserted in `tests/hallPuzzles.test.ts`).
   - **No undo** (decision): sliding a stone back is a normal move and costs one. A refunding undo would trivialise the budget.
-- **Balance (first weighing, authored):** reliefs "1 scarab = 3 lotus", "scarab + lotus = 2 falcons", "vessel = 2 scarabs"; shelf 1 scarab, 2 falcons, 4 lotus. Accepted answers: scarab + 3 lotus, scarab + falcon + lotus, 2 falcons + 2 lotus, falcon + 4 lotus. After a failed weighing, generated puzzles follow `FIRST_HALL_BALANCE` (2 relations, 2–3 vessel pieces, depth 1–2, ≤5 solutions).
+- **Balance (first weighing, authored):** reliefs "1 scarab = 3 lotus", "1 falcon = 2 lotus", "vessel = 2 scarabs"; shelf 1 scarab, 2 falcons, 4 lotus. Accepted answers: scarab + 3 lotus, scarab + falcon + lotus, 2 falcons + 2 lotus, falcon + 4 lotus. After a failed weighing, generated puzzles follow `FIRST_HALL_BALANCE` (2 relations, 2–3 vessel pieces, depth 1–2, ≤5 solutions).
+- **Whole numbers only in the first hall:** `weightModel: 'base-multiples'` makes every weight a whole multiple of the lightest piece (the base unit), and `relationForm: 'one-to-group'` makes every relief one piece against a group of at most 3 ("1 scarab = 1 falcon + 2 lotus"). Reading a relief is always a substitution, never a division; difficulty comes from chaining reliefs. Both settings default to `'free'`, so later rooms can use relations like "2 falcons = 3 scarabs" by configuration.
 - Weights are equal-sized discs, so size never hints at weight.
 
 ## Map awakening sequence (decision)
@@ -65,6 +66,5 @@ Hall depth order: door passages → door slabs → `hall-back` (with transparent
 
 ## Known limitations / follow-ups
 
-- Generated balance rerolls can require fractional reasoning (e.g. "2 falcons = 3 scarabs"); consider restricting generated relations to integer multiples for younger players.
 - Map projection is designed for small graphs; deeper levels will need a layout pass once more rooms exist.
 - The relief close-up uses a darker scaled wall behind the 1:1 art on tall phones.

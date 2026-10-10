@@ -9,19 +9,24 @@ import {
   countPieces,
   createBalanceState,
   emptyPieces,
+  fits,
   generateBalancePuzzle,
+  isOneToGroup,
   pieces,
   pullLever,
   puzzleFor,
+  relationsDetermineRatios,
   removeWeight,
   restoreBalanceState,
   sideWeight,
   weightOf,
+  weightsAreBaseMultiples,
 } from '../src/game/puzzles/balanceScale';
 import type {
   BalanceConfig,
   BalancePuzzle,
   BalanceState,
+  Clue,
   Pieces,
 } from '../src/game/puzzles/balanceScale';
 
@@ -495,5 +500,238 @@ describe('persistence', () => {
     for (const raw of [null, undefined, 'junk', 5, true]) {
       expect(restoreBalanceState(CONFIG, raw, 31)).toEqual(fresh);
     }
+  });
+});
+
+describe('whole-number first hall', () => {
+  const SEEDS = Array.from({ length: 300 }, (_, i) => i + 1);
+  const FREE: BalanceConfig = {
+    ...CONFIG,
+    weightModel: 'free',
+    relationForm: 'free',
+  };
+  let generatedCache: BalancePuzzle[] | undefined;
+
+  /** generateBalancePuzzle(FIRST_HALL_BALANCE, seed) for seeds 1..300, memoised. */
+  function generated(): BalancePuzzle[] {
+    if (!generatedCache)
+      generatedCache = SEEDS.map((seed) => generateBalancePuzzle(CONFIG, seed));
+    return generatedCache;
+  }
+
+  function expectKeys(obj: Pieces, label: string) {
+    expect(Object.keys(obj).sort(), label).toEqual([
+      'falcon',
+      'lotus',
+      'scarab',
+    ]);
+  }
+
+  it('weights are positive whole numbers, the lightest is 1 and every weight is a multiple of it', () => {
+    for (const p of generated()) {
+      const label = `seed ${p.seed}`;
+      for (const k of WEIGHT_KINDS) {
+        expect(
+          Number.isInteger(p.weights[k]) && p.weights[k] > 0,
+          `${label} ${k}`,
+        ).toBe(true);
+      }
+      expect(Math.min(...WEIGHT_KINDS.map((k) => p.weights[k])), label).toBe(1);
+      expect(weightsAreBaseMultiples(p.weights), label).toBe(true);
+      expect(Number.isInteger(p.target), label).toBe(true);
+    }
+  }, 120_000);
+
+  it('every relation is one piece against a group, each side within maxSidePieces, never 2+ pieces on both sides', () => {
+    for (const p of generated()) {
+      const label = `seed ${p.seed}`;
+      for (const c of p.relations) {
+        const l = countPieces(c.left.pieces);
+        const r = countPieces(c.right.pieces);
+        expect(isOneToGroup(c), label).toBe(true);
+        expect(Math.max(l, r), label).toBeLessThanOrEqual(CONFIG.maxSidePieces);
+        expect(l >= 2 && r >= 2, label).toBe(false);
+      }
+    }
+  }, 120_000);
+
+  it('relations alone fix every ratio, and every relation side weighs a whole number', () => {
+    for (const p of generated()) {
+      const label = `seed ${p.seed}`;
+      expect(relationsDetermineRatios(p.relations), label).toBe(true);
+      for (const c of p.relations) {
+        const l = sideWeight(c.left, p.weights, p.target);
+        const r = sideWeight(c.right, p.weights, p.target);
+        expect(l, label).toBe(r);
+        expect(Number.isInteger(l), label).toBe(true);
+      }
+    }
+  }, 120_000);
+
+  it('only scarab, falcon and lotus appear in weights, inventory, vessel and relations', () => {
+    for (const p of generated()) {
+      const label = `seed ${p.seed}`;
+      expectKeys(p.weights, `${label} weights`);
+      expectKeys(p.inventory, `${label} inventory`);
+      expectKeys(p.targetPieces, `${label} targetPieces`);
+      for (const c of p.relations) {
+        expectKeys(c.left.pieces, `${label} left`);
+        expectKeys(c.right.pieces, `${label} right`);
+      }
+      for (const s of p.solutions) expectKeys(s, `${label} solution`);
+    }
+  }, 120_000);
+
+  it('generated puzzles are solvable within the shelf: brute force agrees and checkPuzzle passes', () => {
+    for (const p of generated()) {
+      const label = `seed ${p.seed}`;
+      expect(p.solutions.length, label).toBeGreaterThanOrEqual(1);
+      for (const s of p.solutions)
+        expect(fits(s, p.inventory), label).toBe(true);
+      const brute = bruteForceSolutions(p.weights, p.target, p.inventory)
+        .map(keyOf)
+        .sort();
+      expect(p.solutions.map(keyOf).sort(), label).toEqual(brute);
+      const result = checkPuzzle(p, CONFIG);
+      expect(result.errors, label).toEqual([]);
+      expect(result.ok, label).toBe(true);
+    }
+  }, 120_000);
+
+  it('the authored attempt-0 puzzle balances with each of its solutions on a fresh state', () => {
+    const p = authoredPuzzle();
+    expect(p.solutions.length).toBeGreaterThanOrEqual(2);
+    for (const solution of p.solutions) {
+      const state: BalanceState = {
+        ...createBalanceState(7),
+        placed: { ...solution },
+      };
+      const result = pullLever(CONFIG, state);
+      expect(result.outcome, keyOf(solution)).toBe('balanced');
+      expect(result.state.solved, keyOf(solution)).toBe(true);
+    }
+  });
+
+  it('some generated puzzle has at least two solutions and every one of them balances', () => {
+    let multi = 0;
+    for (const seed of SEEDS) {
+      const p = puzzleFor(CONFIG, { seed, attempt: 1 });
+      if (p.solutions.length < 2) continue;
+      multi++;
+      for (const solution of p.solutions) {
+        const state: BalanceState = {
+          ...createBalanceState(seed),
+          attempt: 1,
+          placed: { ...solution },
+        };
+        const result = pullLever(CONFIG, state);
+        expect(result.outcome, `seed ${seed} ${keyOf(solution)}`).toBe(
+          'balanced',
+        );
+        expect(result.state.attempt).toBe(1);
+      }
+    }
+    expect(multi).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('a run of 60 failed weighings from several base seeds keeps whole-number puzzles and advances the attempt each time', () => {
+    for (const base of [1, 77, 4096]) {
+      let state = createBalanceState(base);
+      let puzzle = puzzleFor(CONFIG, state);
+      for (let i = 0; i < 60; i++) {
+        const label = `seed ${base} attempt ${i}`;
+        expect(checkPuzzle(puzzle, CONFIG).errors, label).toEqual([]);
+        expect(weightsAreBaseMultiples(puzzle.weights), label).toBe(true);
+        expect(relationsDetermineRatios(puzzle.relations), label).toBe(true);
+        expect(puzzle.relations.every(isOneToGroup), label).toBe(true);
+
+        // The lightest piece is the only thing on the pan: never balances.
+        const lightest = WEIGHT_KINDS.reduce((a, b) =>
+          puzzle.weights[b] < puzzle.weights[a] ? b : a,
+        );
+        const wrong = emptyPieces();
+        wrong[lightest] = 1;
+        expect(fits(wrong, puzzle.inventory), label).toBe(true);
+        const result = pullLever(CONFIG, { ...state, placed: wrong });
+        expect(result.outcome, label).toBe('too-light');
+        expect(result.rerolled, label).toBe(true);
+        expect(result.judged, label).toEqual(puzzle);
+        expect(result.state, label).toEqual({
+          seed: base,
+          attempt: i + 1,
+          placed: emptyPieces(),
+          solved: false,
+        });
+        expect(result.puzzle.seed, label).toBe(attemptSeed(base, i + 1));
+        expect(result.puzzle, label).toEqual(puzzleFor(CONFIG, result.state));
+
+        state = result.state;
+        puzzle = result.puzzle;
+      }
+    }
+  }, 120_000);
+
+  it('the same seed and attempt always rebuild an identical puzzle', () => {
+    for (const seed of [1, 42, 4096, 99991]) {
+      for (let attempt = 0; attempt <= 3; attempt++) {
+        const label = `seed ${seed} attempt ${attempt}`;
+        const a = puzzleFor(CONFIG, { seed, attempt });
+        expect(puzzleFor(CONFIG, { seed, attempt }), label).toEqual(a);
+        if (attempt > 0)
+          expect(a, label).toEqual(
+            generateBalancePuzzle(CONFIG, attemptSeed(seed, attempt)),
+          );
+        expect(checkPuzzle(a, CONFIG).errors, label).toEqual([]);
+      }
+    }
+  }, 120_000);
+
+  it('the free config still produces advanced relations or fractional ratios (seeds 1..300)', () => {
+    let advanced = 0;
+    for (const seed of SEEDS) {
+      const p = generateBalancePuzzle(FREE, seed);
+      const multiSided = p.relations.some(
+        (c) =>
+          countPieces(c.left.pieces) >= 2 && countPieces(c.right.pieces) >= 2,
+      );
+      const fractional = !weightsAreBaseMultiples(p.weights);
+      if (multiSided || fractional) advanced++;
+      expect(checkPuzzle(p, FREE).errors, `seed ${seed}`).toEqual([]);
+    }
+    expect(advanced).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('checkPuzzle rejects a 2 falcon = 3 scarab relation under the first-hall config', () => {
+    const weights = pieces(2, 3, 1);
+    const targetPieces = pieces(2, 0, 0);
+    const relations: Clue[] = [
+      {
+        left: { pieces: pieces(0, 2, 0), target: 0 },
+        right: { pieces: pieces(3, 0, 0), target: 0 },
+      },
+      {
+        left: { pieces: pieces(1, 0, 0), target: 0 },
+        right: { pieces: pieces(0, 0, 2), target: 0 },
+      },
+    ];
+    const p = withSolutions({
+      seed: 3,
+      weights,
+      target: weightOf(targetPieces, weights),
+      targetPieces,
+      relations,
+      inventory: pieces(1, 2, 4),
+      solutions: [],
+      depth: 1,
+    });
+    const result = checkPuzzle(p, CONFIG);
+    expect(result.ok).toBe(false);
+    expect(result.errors).not.toContain('a relation does not balance');
+    expect(result.errors).toContain(
+      'a relation is not one piece against a group',
+    );
+    expect(
+      checkPuzzle(p, { ...CONFIG, relationForm: 'free' }).errors,
+    ).not.toContain('a relation is not one piece against a group');
   });
 });

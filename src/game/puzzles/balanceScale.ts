@@ -57,6 +57,24 @@ export interface BalancePuzzle {
 
 export type AttemptPolicy = 'reroll-on-fail' | 'retry-same';
 
+/**
+ * How weights relate to each other.
+ * - 'base-multiples': every weight is a whole multiple of the lightest
+ *   (the shared base unit, which is then 1). No symbol is ever worth a
+ *   fraction of another's base unit.
+ * - 'free': any distinct positive integers (allows e.g. 2 falcons = 3 scarabs).
+ */
+export type WeightModel = 'base-multiples' | 'free';
+
+/**
+ * Shape of each carved relation.
+ * - 'one-to-group': one side is a single piece ("one scarab balances three
+ *   lotus", "one scarab balances a falcon and a lotus"), so reading a relief
+ *   is always a substitution of one piece by a group, never a division.
+ * - 'free': any equal-weight sides ("2 falcons = 3 scarabs").
+ */
+export type RelationForm = 'one-to-group' | 'free';
+
 export interface BalanceConfig {
   /** Inclusive range for an individual weight (in hidden units). */
   weightRange: [number, number];
@@ -77,6 +95,10 @@ export interface BalanceConfig {
   authored?: AuthoredBalance;
   /** Candidates tried per seed before falling back. */
   maxCandidates: number;
+  /** Default 'free'. The first hall uses 'base-multiples'. */
+  weightModel?: WeightModel;
+  /** Default 'free'. The first hall uses 'one-to-group'. */
+  relationForm?: RelationForm;
 }
 
 export interface AuthoredBalance {
@@ -271,6 +293,22 @@ export function substitutionDepth(
   return null;
 }
 
+/** True when every weight is a whole multiple of the lightest weight. */
+export function weightsAreBaseMultiples(weights: Pieces) {
+  const base = Math.min(...WEIGHT_KINDS.map((k) => weights[k]));
+  return (
+    base > 0 && WEIGHT_KINDS.every((k) => Number.isInteger(weights[k] / base))
+  );
+}
+
+/** True when one side of the relation is exactly one piece (and no vessel). */
+export function isOneToGroup(clue: Clue) {
+  if (clue.left.target || clue.right.target) return false;
+  return (
+    countPieces(clue.left.pieces) === 1 || countPieces(clue.right.pieces) === 1
+  );
+}
+
 export interface PuzzleCheck {
   ok: boolean;
   errors: string[];
@@ -279,7 +317,10 @@ export interface PuzzleCheck {
 /** Validates a puzzle against the construction rules described above. */
 export function checkPuzzle(
   p: BalancePuzzle,
-  config?: Pick<BalanceConfig, 'depth' | 'maxSolutions'>,
+  config?: Pick<BalanceConfig, 'depth' | 'maxSolutions'> &
+    Partial<
+      Pick<BalanceConfig, 'weightModel' | 'relationForm' | 'maxSidePieces'>
+    >,
 ): PuzzleCheck {
   const errors: string[] = [];
   const kinds = new Set(WEIGHT_KINDS.map((k) => p.weights[k]));
@@ -311,6 +352,25 @@ export function checkPuzzle(
   if (depth === null) errors.push('no substitution path to a placeable set');
   else if (config && (depth < config.depth[0] || depth > config.depth[1]))
     errors.push('substitution depth outside configured difficulty');
+  if (
+    config?.weightModel === 'base-multiples' &&
+    !weightsAreBaseMultiples(p.weights)
+  )
+    errors.push('a weight is not a whole multiple of the base unit');
+  if (
+    config?.relationForm === 'one-to-group' &&
+    !p.relations.every(isOneToGroup)
+  )
+    errors.push('a relation is not one piece against a group');
+  if (
+    config?.maxSidePieces &&
+    p.relations.some(
+      (c) =>
+        countPieces(c.left.pieces) > config.maxSidePieces! ||
+        countPieces(c.right.pieces) > config.maxSidePieces!,
+    )
+  )
+    errors.push('a relation side has too many pieces');
   if (solutions.map(key).join('|') !== p.solutions.map(key).join('|'))
     errors.push('stored solutions are stale');
   return { ok: errors.length === 0, errors };
@@ -328,16 +388,22 @@ export const FIRST_HALL_BALANCE: BalanceConfig = {
   maxSolutions: 5,
   attemptPolicy: 'reroll-on-fail',
   maxCandidates: 400,
+  // Whole numbers only: weights are multiples of the lightest piece and each
+  // relief swaps one piece for a small group, so no step needs a fraction.
+  // Difficulty comes from chaining reliefs, not from arithmetic.
+  weightModel: 'base-multiples',
+  relationForm: 'one-to-group',
   // Hand-authored first weighing. Reliefs: one scarab balances three lotus;
-  // a scarab with a lotus balances two falcons; the vessel balances two
-  // scarabs. The shelf has a single scarab, so the player must substitute
-  // (e.g. scarab + three lotus, or two falcons + two lotus).
+  // one falcon balances two lotus; the vessel balances two scarabs. The shelf
+  // has a single scarab, so the player must substitute: scarab + three lotus,
+  // scarab + falcon + lotus (combining both reliefs), two falcons + two lotus
+  // or falcon + four lotus.
   authored: {
     weights: pieces(3, 2, 1),
     targetPieces: pieces(2, 0, 0),
     relations: [
       { left: side(pieces(1, 0, 0)), right: side(pieces(0, 0, 3)) },
-      { left: side(pieces(1, 0, 1)), right: side(pieces(0, 2, 0)) },
+      { left: side(pieces(0, 1, 0)), right: side(pieces(0, 0, 2)) },
     ],
     inventory: pieces(1, 2, 4),
   },
@@ -361,7 +427,11 @@ function finish(seed: number, a: AuthoredBalance): BalancePuzzle {
 }
 
 /** Every reduced equal-weight relation with disjoint sides. */
-function candidateRelations(weights: Pieces, maxSide: number): Clue[] {
+function candidateRelations(
+  weights: Pieces,
+  maxSide: number,
+  form: RelationForm = 'free',
+): Clue[] {
   const sides: Pieces[] = [];
   const max = maxSide;
   for (let s = 0; s <= max; s++)
@@ -378,6 +448,7 @@ function candidateRelations(weights: Pieces, maxSide: number): Clue[] {
       if (all.reduce(gcd) !== 1) continue;
       // Put the side with fewer pieces on the left ("one scarab = three lotus").
       const [l, r] = countPieces(a) <= countPieces(b) ? [a, b] : [b, a];
+      if (form === 'one-to-group' && countPieces(l) !== 1) continue;
       const id = `${key(l)}=${key(r)}`;
       if (seen.has(id)) continue;
       seen.add(id);
@@ -403,17 +474,32 @@ function tryCandidate(
   config: BalanceConfig,
   seed: number,
 ): BalancePuzzle | null {
-  const values = shuffle(
-    rand,
-    Array.from(
-      { length: config.weightRange[1] - config.weightRange[0] + 1 },
-      (_, i) => config.weightRange[0] + i,
-    ),
-  ).slice(0, WEIGHT_KINDS.length);
+  const range = Array.from(
+    { length: config.weightRange[1] - config.weightRange[0] + 1 },
+    (_, i) => config.weightRange[0] + i,
+  );
+  let values: number[];
+  if (config.weightModel === 'base-multiples') {
+    // The lightest piece is the base unit (1); the others are whole
+    // multiples of it, assigned to random symbols.
+    const heavier = shuffle(
+      rand,
+      range.filter((v) => v > 1),
+    ).slice(0, WEIGHT_KINDS.length - 1);
+    values = shuffle(rand, [1, ...heavier]);
+  } else values = shuffle(rand, range).slice(0, WEIGHT_KINDS.length);
   if (values.length < WEIGHT_KINDS.length) return null;
   if (values.reduce(gcd) !== 1) return null;
   const weights = pieces(values[0], values[1], values[2]);
-  const pool = shuffle(rand, candidateRelations(weights, config.maxSidePieces));
+  if (
+    config.weightModel === 'base-multiples' &&
+    !weightsAreBaseMultiples(weights)
+  )
+    return null;
+  const pool = shuffle(
+    rand,
+    candidateRelations(weights, config.maxSidePieces, config.relationForm),
+  );
   if (pool.length < config.relationCount) return null;
   const relations = pool.slice(0, config.relationCount);
   if (!relationsDetermineRatios(relations)) return null;
