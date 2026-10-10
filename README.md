@@ -21,6 +21,7 @@ Useful checks: `npm run typecheck`, `npm run lint`, `npm test` and `npm run buil
 - `src/game/state/` tracks visited rooms and solved gates for the current browser session.
 - `src/game/ui/` contains the puzzle panels and schematic pyramid map.
 - `src/game/presentation/` defines layered room rendering and explicit door visuals.
+- `src/experiments/sealed-sun/` is a self-contained room-art experiment with its own generators, puzzle and scenes.
 - `tests/` contains content validation tests.
 - `docs/` is the source of truth for design and implementation direction.
 
@@ -33,3 +34,4 @@ Progress stays while the current page session remains open and resets after a re
 - [Technical design](docs/TECHNICAL_DESIGN.md)
 - [Art direction](docs/ART_DIRECTION.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Sealed Sun experiment](docs/SEALED_SUN_EXPERIMENT.md): a separate, clean-room pixel-art chamber (menu: Experiment · Solkammaren, or `/?experiment=sealed-sun`)

@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc -b --pretty",
-    "generate:visual-lab-art": "node tools/generate-visual-lab-art.mjs"
+    "generate:visual-lab-art": "node tools/generate-visual-lab-art.mjs",
+    "art:sealed-sun": "node tools/export-sealed-sun-art.ts"
   },
   "dependencies": {
     "phaser": "^3.90.0"

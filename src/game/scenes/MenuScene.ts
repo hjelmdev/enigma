@@ -171,6 +171,38 @@ export class MenuScene extends Phaser.Scene {
     labButton.on('pointerup', openLab);
     labLabel.on('pointerup', openLab);
 
+    // Separate entry for the clean-room Sealed Sun room-art experiment.
+    const stackedY = labY - buttonH - 12;
+    const stacked = stackedY - buttonH / 2 > h * 0.665;
+    const expW = stacked ? buttonW : Math.min(230, w * 0.5);
+    const expH = stacked ? buttonH : 44;
+    const expX = stacked ? cx : w - expW / 2 - 12;
+    const expY = stacked ? stackedY : expH / 2 + 12;
+    const expButton = this.add
+      .rectangle(expX, expY, expW, expH, 0x14204a)
+      .setStrokeStyle(1, 0xe0a630, 0.85)
+      .setInteractive({ useHandCursor: true });
+    const expLabel = this.add
+      .text(
+        expX,
+        expY,
+        stacked ? 'EXPERIMENT  ·  SOLKAMMAREN' : 'SOLKAMMAREN',
+        {
+          fontFamily: 'DM Sans, sans-serif',
+          fontSize: `${Phaser.Math.Clamp(w * 0.015, 12, 15)}px`,
+          color: '#f6d35e',
+          fontStyle: 'bold',
+          letterSpacing: 0.5,
+        },
+      )
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    const openExperiment = () => this.scene.start('sealed-sun');
+    expButton.on('pointerover', () => expButton.setFillStyle(0x1f3271));
+    expButton.on('pointerout', () => expButton.setFillStyle(0x14204a));
+    expButton.on('pointerup', openExperiment);
+    expLabel.on('pointerup', openExperiment);
+
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);

@@ -1,0 +1,256 @@
+/* Screen-fixed UI for the Sealed Sun experiment. Colours come from the art
+   palette (art/palette.ts); stepped corners echo the pixel art without
+   shrinking text to pixel fonts. */
+.ss-ui {
+  --ss-ink: #07050b;
+  --ss-panel: rgb(14 12 24 / 0.86);
+  --ss-edge: #865014;
+  --ss-gold: #f6d35e;
+  --ss-cream: #f5e3b8;
+  --ss-text: #e6cc9c;
+  --ss-lapis: #2e4a9a;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: var(--ss-text);
+  z-index: 5;
+}
+
+.ss-ui button {
+  pointer-events: auto;
+  cursor: pointer;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  color: var(--ss-cream);
+  background: #2c283f;
+  font:
+    600 15px/1 'DM Sans',
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.04em;
+  box-shadow:
+    0 -3px 0 0 var(--ss-ink),
+    0 3px 0 0 var(--ss-ink),
+    -3px 0 0 0 var(--ss-ink),
+    3px 0 0 0 var(--ss-ink),
+    inset 0 2px 0 0 #594853,
+    inset 0 -3px 0 0 #1d1a2e;
+  touch-action: manipulation;
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.ss-ui button:hover {
+  background: #3f364b;
+}
+
+.ss-ui button:active {
+  transform: translateY(1px);
+}
+
+.ss-ui button:focus-visible {
+  outline: 3px solid var(--ss-gold);
+  outline-offset: 4px;
+}
+
+.ss-ui button.ss-primary {
+  background: #865014;
+  color: #fff2b0;
+  box-shadow:
+    0 -3px 0 0 var(--ss-ink),
+    0 3px 0 0 var(--ss-ink),
+    -3px 0 0 0 var(--ss-ink),
+    3px 0 0 0 var(--ss-ink),
+    inset 0 2px 0 0 #e0a630,
+    inset 0 -3px 0 0 #55300d;
+}
+
+.ss-ui button.ss-primary:hover {
+  background: #b8761c;
+}
+
+.ss-ui button[aria-pressed='true'] {
+  background: #1f3271;
+  color: var(--ss-gold);
+  box-shadow:
+    0 -3px 0 0 var(--ss-ink),
+    0 3px 0 0 var(--ss-ink),
+    -3px 0 0 0 var(--ss-ink),
+    3px 0 0 0 var(--ss-ink),
+    inset 0 0 0 2px var(--ss-gold);
+}
+
+.ss-ui button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ss-top {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ss-title {
+  font:
+    600 14px/1.2 Cinzel,
+    Georgia,
+    serif;
+  letter-spacing: 0.14em;
+  color: var(--ss-gold);
+  text-shadow: 0 2px 0 var(--ss-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ss-spacer {
+  flex: 1;
+}
+
+.ss-narrative {
+  position: absolute;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 24px));
+  padding: 12px 16px;
+  background: var(--ss-panel);
+  box-shadow:
+    0 -3px 0 0 var(--ss-ink),
+    0 3px 0 0 var(--ss-ink),
+    -3px 0 0 0 var(--ss-ink),
+    3px 0 0 0 var(--ss-ink),
+    inset 0 0 0 2px var(--ss-edge);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ss-cream);
+  transition: opacity 240ms ease;
+}
+
+.ss-narrative strong {
+  display: block;
+  margin-bottom: 2px;
+  font:
+    600 12px/1.3 Cinzel,
+    Georgia,
+    serif;
+  letter-spacing: 0.16em;
+  color: var(--ss-gold);
+  text-transform: uppercase;
+}
+
+.ss-narrative[hidden],
+.ss-ui [hidden] {
+  display: none !important;
+}
+
+.ss-cue {
+  position: absolute;
+  top: 50%;
+  width: 28px;
+  height: 56px;
+  margin-top: -28px;
+  display: grid;
+  place-items: center;
+  color: var(--ss-gold);
+  font-size: 22px;
+  opacity: 0.75;
+  text-shadow: 0 2px 0 var(--ss-ink);
+  animation: ss-cue 1.8s ease-in-out infinite;
+}
+
+.ss-cue.left {
+  left: 4px;
+}
+
+.ss-cue.right {
+  right: 4px;
+}
+
+@keyframes ss-cue {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.ss-closeup-bar {
+  position: absolute;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.ss-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.ss-row button {
+  flex: 1;
+  max-width: 180px;
+}
+
+.ss-row button.ss-turn {
+  font-size: 22px;
+  max-width: 120px;
+}
+
+.ss-caption {
+  padding: 10px 14px;
+  background: var(--ss-panel);
+  box-shadow: inset 0 0 0 2px var(--ss-edge);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ss-cream);
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .ss-narrative,
+  .ss-caption {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .ss-closeup-bar {
+    left: auto;
+    right: 12px;
+    transform: none;
+    width: min(300px, 40%);
+    bottom: 12px;
+  }
+  .ss-ui button {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-cue {
+    animation: none;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .ss-narrative {
+    left: 12px;
+    transform: none;
+    width: min(400px, 48%);
+  }
+}
+
+.ss-narrative.ss-faded {
+  opacity: 0;
+}
