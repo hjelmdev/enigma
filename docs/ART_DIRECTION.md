@@ -78,6 +78,11 @@ compositions, layer boundaries, generator and placeholders are documented in
 `docs/VISUAL_LAB.md`; the generated pixel PNGs are exploratory, not final
 production assets.
 
+Within that experiment, HD uses blue-grey recesses and charcoal depth against
+limestone, amber torchlight, and selective lapis/turquoise inlay. Keep the cool
+colors in shadow planes and sacred accents so sandstone remains the primary
+material. Classic retains the smaller warm palette and simplified silhouettes.
+
 ## Immediate art needs
 
 For the vertical slice: one entrance illustration, at least two visually distinct puzzle chambers, a secret alcove concept, a pair of close-up mechanisms, and a simple map style guide. **Code may use placeholders first.** Final art is not a prerequisite for implementing the scene system.

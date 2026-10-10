@@ -8,6 +8,7 @@ export interface RoomArtPack {
   leftLeaf: string;
   rightLeaf: string;
   mechanism: string;
+  puzzleBoard: string;
   ring: string;
   clue: string;
   vessel: string;
@@ -44,6 +45,7 @@ const art = (style: 'classic' | 'hd'): RoomArtPack => {
     leftLeaf: `${base}/door-left.png`,
     rightLeaf: `${base}/door-right.png`,
     mechanism: `${base}/mechanism.png`,
+    puzzleBoard: `${base}/puzzle-board.png`,
     ring: `${base}/sun-ring.png`,
     clue: `${base}/clue-relief.png`,
     vessel: `${base}/vessel.png`,
@@ -65,7 +67,7 @@ export const VISUAL_STYLES: ReadonlyArray<{
   {
     id: 'hd',
     title: 'HD Pixel Art',
-    subtitle: 'Tätare stenstruktur · varm fackelbelysning',
+    subtitle: 'Lapis, turkos och varm fackelbelysning',
     art: art('hd'),
   },
   {
@@ -76,12 +78,32 @@ export const VISUAL_STYLES: ReadonlyArray<{
 ];
 
 export type RingAngles = [number, number, number];
-export const SUN_SEAL_SOLUTION: RingAngles = [1, 2, 3];
+export interface SunSealState {
+  angles: RingAngles;
+  solved: boolean;
+  unlockCount: number;
+}
+
+// The relief depicts sunrise in the east, the sun at its highest point, then sunset in the west.
+// Ring positions are N=0, E=1, S=2, W=3; the middle ring represents the zenith (N/top).
+export const SUN_SEAL_SOLUTION: RingAngles = [1, 0, 3];
+export const SUN_SEAL_HINTS = [
+  'Titta på reliefen bredvid sigillet. Den visar solen vid tre olika tider på dagen.',
+  'Följ solen från där den stiger, via dagens högsta punkt, till där den sjunker. Läs från vänster till höger.',
+  'Börja med vänstra skivan: morgonsolen kommer från öster. Vrid den till Ö och jämför sedan mitten med solens högsta position.',
+] as const;
+
+export function initialSunSeal(): RingAngles {
+  return [0, 2, 1];
+}
+
+export function createSunSealState(): SunSealState {
+  return { angles: initialSunSeal(), solved: false, unlockCount: 0 };
+}
 
 export function rotateRing(angles: RingAngles, index: number): RingAngles {
-  if (!Number.isInteger(index) || index < 0 || index >= angles.length) {
+  if (!Number.isInteger(index) || index < 0 || index >= angles.length)
     return [...angles];
-  }
   const next: RingAngles = [...angles];
   next[index] = (next[index] + 1) % 4;
   return next;
@@ -91,6 +113,16 @@ export function isSunSealSolved(angles: RingAngles) {
   return angles.every((angle, index) => angle === SUN_SEAL_SOLUTION[index]);
 }
 
-export function initialSunSeal(): RingAngles {
-  return [0, 0, 0];
+export function rotateSunSeal(
+  state: SunSealState,
+  index: number,
+): SunSealState {
+  if (state.solved) return state;
+  const angles = rotateRing(state.angles, index);
+  if (!isSunSealSolved(angles)) return { ...state, angles };
+  return { angles, solved: true, unlockCount: state.unlockCount + 1 };
+}
+
+export function resetSunSeal(): SunSealState {
+  return createSunSealState();
 }

@@ -42,32 +42,32 @@ const palettes = {
   hd: {
     scale: 2,
     colors: {
-      ink: '#120e0e',
-      outline: '#291c19',
-      shade: '#38251f',
-      deep: '#211614',
-      wall0: '#5e4334',
-      wall1: '#785642',
-      wall2: '#95694c',
-      wall3: '#b6875d',
-      light: '#d8b17b',
-      gleam: '#f5d9a5',
-      gold: '#b97e3f',
-      goldLight: '#ecc46d',
-      floor: '#523b30',
-      mortar: '#30211b',
-      dust: '#f0d49a',
-      flame: '#f6a54b',
-      torch: '#ffdc83',
-      door: '#685042',
-      doorLight: '#9f7c5c',
-      vessel: '#8f684b',
-      panel: '#816653',
-      water: '#88816b',
-      eye: '#e5c789',
+      ink: '#111820',
+      outline: '#202b35',
+      shade: '#2b3944',
+      deep: '#121e2b',
+      wall0: '#4b5960',
+      wall1: '#69736e',
+      wall2: '#9d9277',
+      wall3: '#c7ae80',
+      light: '#e3c995',
+      gleam: '#fff0c6',
+      gold: '#a97843',
+      goldLight: '#e1bd72',
+      floor: '#34414b',
+      mortar: '#25303b',
+      dust: '#f1dfb5',
+      flame: '#ef9c4b',
+      torch: '#ffe09a',
+      door: '#414c54',
+      doorLight: '#899086',
+      vessel: '#8c5e48',
+      panel: '#617376',
+      water: '#3c8888',
+      eye: '#7fc8bd',
     },
-    textureCount: 900,
-    rayCount: 17,
+    textureCount: 240,
+    rayCount: 13,
   },
 };
 
@@ -396,6 +396,80 @@ function drawBackground(name) {
   // Monumental outer piers, with fine fluting and capital shadow.
   drawColumn(r, 28, s, c, hd);
   drawColumn(r, 292, s, c, hd);
+  if (hd) {
+    // Cool blue-grey recesses separate wall planes; lapis and turquoise are reserved for sacred details.
+    r.rect(72 * s, 34 * s, 50 * s, 77 * s, c.deep, 0.52);
+    r.rect(198 * s, 34 * s, 48 * s, 77 * s, c.deep, 0.52);
+    r.line(74 * s, 36 * s, 120 * s, 36 * s, c.water, 2 * s);
+    r.line(200 * s, 36 * s, 244 * s, 36 * s, c.water, 2 * s);
+    // Paired wall reliefs catch the torchlight and create a scale cue beside the door.
+    for (const [cx, cy] of [
+      [97, 73],
+      [223, 73],
+    ]) {
+      r.ellipse(cx * s, cy * s, 11 * s, 21 * s, c.outline);
+      r.ellipse(cx * s, cy * s, 9 * s, 19 * s, c.panel);
+      r.ellipse(cx * s, (cy - 5) * s, 4 * s, 5 * s, c.gold);
+      r.line(
+        (cx - 5) * s,
+        (cy + 3) * s,
+        cx * s,
+        (cy + 11) * s,
+        c.goldLight,
+        2 * s,
+      );
+      r.line(cx * s, (cy + 11) * s, (cx + 5) * s, (cy + 3) * s, c.gold, 2 * s);
+      r.pixel(cx * s, (cy - 5) * s, c.eye);
+      r.line(
+        (cx - 7) * s,
+        (cy + 17) * s,
+        (cx + 7) * s,
+        (cy + 17) * s,
+        c.water,
+        s,
+      );
+    }
+    // Thin turquoise inlay follows the cornice, interrupted at the sacred doorway.
+    r.line(14 * s, 23 * s, 123 * s, 23 * s, c.water, s);
+    r.line(197 * s, 23 * s, 306 * s, 23 * s, c.water, s);
+    for (let x = 18; x < 302; x += 12) {
+      if (x > 123 && x < 197) continue;
+      r.pixel(x * s, 24 * s, c.eye);
+    }
+    // Receding blue-black floor courses frame a narrow amber path into the chamber.
+    r.polygon(
+      [
+        [0, 133 * s],
+        [320 * s, 133 * s],
+        [320 * s, 160 * s],
+        [0, 160 * s],
+      ],
+      c.deep,
+      true,
+    );
+    r.polygon(
+      [
+        [118 * s, 122 * s],
+        [202 * s, 122 * s],
+        [252 * s, 160 * s],
+        [68 * s, 160 * s],
+      ],
+      c.wall1,
+      true,
+    );
+    r.polygon(
+      [
+        [145 * s, 122 * s],
+        [175 * s, 122 * s],
+        [194 * s, 160 * s],
+        [126 * s, 160 * s],
+      ],
+      c.gold,
+      true,
+    );
+    r.line(145 * s, 126 * s, 126 * s, 159 * s, c.gleam, s);
+    r.line(175 * s, 126 * s, 194 * s, 159 * s, c.goldLight, s);
+  }
   // The inner chamber walls are darker toward the corners and warmer near the torches.
   drawTorch(r, 46, 35, s, c, random, hd);
   drawTorch(r, 274, 35, s, c, random, hd);
@@ -440,7 +514,7 @@ function drawBackground(name) {
   }
   if (hd) {
     // Fine chipped limestone, tightly controlled so the large architectural forms stay readable.
-    for (let i = 0; i < 260; i++) {
+    for (let i = 0; i < 96; i++) {
       const x = range(random, 12, 308) * s,
         yy = range(random, 22, 118) * s;
       if (x > 128 * s && x < 192 * s && yy > 48 * s) continue;
@@ -591,7 +665,7 @@ function drawFrame(name) {
 
 function drawDoorLeaf(name, right = false) {
   const { scale: s, colors: c } = palettes[name],
-    w = 30,
+    w = 58,
     h = 100,
     r = new Raster(w * s, h * s, c),
     hd = name === 'hd';
@@ -609,23 +683,24 @@ function drawDoorLeaf(name, right = false) {
   r.rect(5 * s, 11 * s, (w - 10) * s, 1 * s, c.gold);
   r.rect(4 * s, 88 * s, (w - 8) * s, 1 * s, c.outline);
   // Paired sun discs and stepped rays form one continuous seal across both slabs.
-  r.ellipse(15 * s, 40 * s, 9 * s, 11 * s, c.outline);
-  r.ellipse(15 * s, 40 * s, 7 * s, 9 * s, c.gold);
-  r.ellipse(15 * s, 40 * s, 5 * s, 7 * s, c.doorLight);
-  r.ellipse(15 * s, 40 * s, 2 * s, 3 * s, c.goldLight);
+  const sunX = w / 2;
+  r.ellipse(sunX * s, 40 * s, 9 * s, 11 * s, c.outline);
+  r.ellipse(sunX * s, 40 * s, 7 * s, 9 * s, c.gold);
+  r.ellipse(sunX * s, 40 * s, 5 * s, 7 * s, c.doorLight);
+  r.ellipse(sunX * s, 40 * s, 2 * s, 3 * s, c.goldLight);
   const direction = right ? -1 : 1;
   for (let i = 0; i < 5; i++) {
     const yy = 24 + i * 8;
-    const end = 15 + direction * (i % 2 ? 7 : 9);
+    const end = sunX + direction * (i % 2 ? 7 : 9);
     r.line(
-      (15 + direction * 5) * s,
+      (sunX + direction * 5) * s,
       yy * s,
       end * s,
       yy * s,
       i % 2 ? c.goldLight : c.outline,
       s,
     );
-    if (hd) r.pixel((15 + direction * 7) * s, (yy - 1) * s, c.gleam);
+    if (hd) r.pixel((sunX + direction * 7) * s, (yy - 1) * s, c.gleam);
   }
   for (let i = 0; i < (hd ? 70 : 25); i++) {
     const x = range(random, 3, w - 4);
@@ -686,24 +761,140 @@ function drawMechanism(name) {
   return r;
 }
 
+function drawPuzzleBoard(name) {
+  const { scale: s, colors: c } = palettes[name];
+  const hd = name === 'hd';
+  const r = new Raster(320 * s, 240 * s, c);
+  // The slab is one replaceable plate behind three independently moving discs.
+  r.polygon(
+    [
+      [8 * s, 18 * s],
+      [312 * s, 18 * s],
+      [318 * s, 26 * s],
+      [318 * s, 214 * s],
+      [307 * s, 224 * s],
+      [13 * s, 224 * s],
+      [2 * s, 214 * s],
+      [2 * s, 27 * s],
+    ],
+    c.outline,
+  );
+  r.polygon(
+    [
+      [12 * s, 22 * s],
+      [308 * s, 22 * s],
+      [313 * s, 29 * s],
+      [313 * s, 210 * s],
+      [304 * s, 218 * s],
+      [16 * s, 218 * s],
+      [7 * s, 210 * s],
+      [7 * s, 30 * s],
+    ],
+    hd ? c.wall0 : c.wall1,
+  );
+  r.line(15 * s, 26 * s, 305 * s, 26 * s, c.light, 2 * s);
+  r.line(12 * s, 31 * s, 12 * s, 207 * s, c.wall3, s);
+  r.line(307 * s, 31 * s, 307 * s, 207 * s, c.deep, 2 * s);
+  r.line(16 * s, 214 * s, 304 * s, 214 * s, c.outline, 2 * s);
+  // Restrained lapis/turquoise inlay ties the tactile puzzle to the chamber palette.
+  r.line(34 * s, 43 * s, 286 * s, 43 * s, hd ? c.water : c.gold, 2 * s);
+  r.line(34 * s, 197 * s, 286 * s, 197 * s, hd ? c.water : c.gold, 2 * s);
+  for (const x of [24, 296]) {
+    r.ellipse(x * s, 120 * s, 5 * s, 5 * s, c.gold);
+    r.pixel(x * s, 120 * s, c.gleam);
+  }
+  const centers = [44, 160, 276];
+  for (let i = 0; i < centers.length; i++) {
+    const x = centers[i];
+    // Recess, stepped bronze rim and cool shadow make each disk read as embedded stonework.
+    r.ellipse(x * s, 120 * s, 43 * s, 43 * s, c.outline);
+    r.ellipse(x * s, 120 * s, 39 * s, 39 * s, hd ? c.gold : c.goldLight);
+    r.ellipse(x * s, 120 * s, 35 * s, 35 * s, hd ? c.shade : c.wall0);
+    r.ellipse(x * s, 120 * s, 31 * s, 31 * s, hd ? c.deep : c.deep);
+    r.ellipse(
+      x * s,
+      120 * s,
+      28 * s,
+      28 * s,
+      hd ? c.wall1 : c.wall2,
+      false,
+      2 * s,
+    );
+    r.line((x - 17) * s, 88 * s, (x + 17) * s, 88 * s, c.light, s);
+    r.line((x - 17) * s, 152 * s, (x + 17) * s, 152 * s, c.deep, s);
+    for (let k = 0; k < 4; k++) {
+      const a = -Math.PI / 2 + (k * Math.PI) / 2;
+      const nx = x + Math.round(Math.cos(a) * 36);
+      const ny = 120 + Math.round(Math.sin(a) * 36);
+      r.ellipse(nx * s, ny * s, 2 * s, 2 * s, k === i ? c.eye : c.gold);
+    }
+    if (hd) {
+      // Hand-authored short chisel cuts, placed symmetrically rather than speckled noise.
+      for (const dy of [-5, 0, 5]) {
+        r.line(
+          (x - 47) * s,
+          (120 + dy) * s,
+          (x - 44) * s,
+          (120 + dy) * s,
+          c.wall3,
+          s,
+        );
+        r.line(
+          (x + 44) * s,
+          (120 + dy) * s,
+          (x + 47) * s,
+          (120 + dy) * s,
+          c.outline,
+          s,
+        );
+      }
+    }
+  }
+  // Three small sun-phase reliefs sit above the discs as an environmental clue, not a printed answer.
+  for (let i = 0; i < 3; i++) {
+    const x = centers[i];
+    const cy = i === 1 ? 51 : 54;
+    r.ellipse(x * s, cy * s, 4 * s, 4 * s, c.goldLight);
+    const [dx, dy] = [
+      [1, 0],
+      [0, -1],
+      [-1, 0],
+    ][i];
+    r.line(x * s, cy * s, (x + dx * 7) * s, (cy + dy * 7) * s, c.gleam, 2 * s);
+    if (hd) r.pixel((x - 2) * s, (cy + 5) * s, c.water);
+  }
+  return r;
+}
+
 function drawRing(name) {
   const { scale: s, colors: c } = palettes[name],
-    r = new Raster(14 * s, 14 * s, c);
-  r.ellipse(7 * s, 7 * s, 6 * s, 6 * s, c.outline);
-  r.ellipse(7 * s, 7 * s, 5 * s, 5 * s, c.gold);
-  r.ellipse(7 * s, 7 * s, 4 * s, 4 * s, c.doorLight);
-  r.ellipse(7 * s, 7 * s, 2 * s, 2 * s, c.outline);
-  r.ellipse(7 * s, 7 * s, 1 * s, 1 * s, c.deep);
-  r.line(7 * s, 1 * s, 7 * s, 4 * s, c.gleam, s);
-  r.line(5 * s, 3 * s, 7 * s, 1 * s, c.gleam, s);
-  r.line(9 * s, 3 * s, 7 * s, 1 * s, c.gleam, s);
-  for (const [x, y] of [
-    [7, 0],
-    [13, 7],
-    [7, 13],
-    [0, 7],
-  ])
-    r.pixel(x * s, y * s, c.outline);
+    r = new Raster(48 * s, 48 * s, c),
+    hd = name === 'hd';
+  r.ellipse(24 * s, 24 * s, 23 * s, 23 * s, c.outline);
+  r.ellipse(24 * s, 24 * s, 21 * s, 21 * s, hd ? c.door : c.gold);
+  r.ellipse(24 * s, 24 * s, 18 * s, 18 * s, hd ? c.shade : c.door);
+  r.ellipse(24 * s, 24 * s, 15 * s, 15 * s, hd ? c.panel : c.doorLight);
+  r.ellipse(24 * s, 24 * s, 11 * s, 11 * s, c.outline);
+  r.ellipse(24 * s, 24 * s, 9 * s, 9 * s, hd ? c.deep : c.shade);
+  r.ellipse(24 * s, 24 * s, 5 * s, 5 * s, c.gold);
+  r.ellipse(24 * s, 24 * s, 2 * s, 2 * s, c.goldLight);
+  // Cardinal glyphs are carved into four raised inlay seats; the arrow at north rotates with the disk.
+  for (let i = 0; i < 4; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 2;
+    const cx = 24 + Math.round(Math.cos(a) * 14);
+    const cy = 24 + Math.round(Math.sin(a) * 14);
+    r.ellipse(cx * s, cy * s, 3 * s, 3 * s, i === 0 ? c.eye : c.gold);
+    r.pixel(cx * s, cy * s, c.deep);
+    r.pixel(
+      (cx + Math.round(Math.cos(a) * 2)) * s,
+      (cy + Math.round(Math.sin(a) * 2)) * s,
+      c.gleam,
+    );
+  }
+  r.line(24 * s, 3 * s, 24 * s, 8 * s, c.gleam, 2 * s);
+  r.line(21 * s, 7 * s, 24 * s, 3 * s, c.gleam, s);
+  r.line(27 * s, 7 * s, 24 * s, 3 * s, c.gleam, s);
+  r.ellipse(24 * s, 24 * s, 7 * s, 7 * s, c.water, false, s);
   return r;
 }
 
@@ -717,24 +908,33 @@ function drawClue(name) {
   r.line(4 * s, 5 * s, 37 * s, 5 * s, c.gold, 2 * s);
   r.line(4 * s, 43 * s, 37 * s, 43 * s, c.outline, 2 * s);
   // Three rebus-like glyphs, with the ray directions encoded as relief rather than text.
-  const dirs = [1, 2, 3];
+  const rays = [
+    [1, 0],
+    [0, -1],
+    [-1, 0],
+  ];
   for (let i = 0; i < 3; i++) {
     const cx = (10 + i * 11) * s,
-      cy = 23 * s;
+      cy = (i === 1 ? 17 : 25) * s;
     r.ellipse(cx, cy, 3 * s, 3 * s, c.goldLight);
     r.ellipse(cx, cy, 1 * s, 1 * s, c.outline);
-    for (let k = 0; k < 4; k++) {
-      const a = (Math.PI / 2) * k;
-      const length = k === dirs[i] ? 7 : 4;
-      r.line(
-        cx + Math.cos(a) * 4 * s,
-        cy + Math.sin(a) * 4 * s,
-        cx + Math.cos(a) * length * s,
-        cy + Math.sin(a) * length * s,
-        k === dirs[i] ? c.gleam : c.gold,
-        s,
-      );
-    }
+    const [dx, dy] = rays[i];
+    r.line(
+      cx + dx * 4 * s,
+      cy + dy * 4 * s,
+      cx + dx * 7 * s,
+      cy + dy * 7 * s,
+      c.gleam,
+      2 * s,
+    );
+    r.line(
+      cx - dx * 2 * s,
+      cy - dy * 2 * s,
+      cx + dx * 2 * s,
+      cy + dy * 2 * s,
+      c.gold,
+      s,
+    );
     if (hd) {
       r.line((6 + i * 11) * s, 33 * s, (14 + i * 11) * s, 33 * s, c.gold, s);
       r.pixel((10 + i * 11) * s, 34 * s, c.gleam);
@@ -742,7 +942,7 @@ function drawClue(name) {
   }
   // A carved channel links sun, river and eye without writing the solution.
   r.line(8 * s, 38 * s, 34 * s, 38 * s, c.wall3, s);
-  r.line(20 * s, 37 * s, 20 * s, 40 * s, c.gleam, s);
+  r.line(20 * s, 33 * s, 20 * s, 38 * s, c.gleam, s);
   return r;
 }
 
@@ -857,6 +1057,7 @@ for (const style of Object.keys(palettes)) {
     'door-left.png': drawDoorLeaf(style, false),
     'door-right.png': drawDoorLeaf(style, true),
     'mechanism.png': drawMechanism(style),
+    'puzzle-board.png': drawPuzzleBoard(style),
     'sun-ring.png': drawRing(style),
     'clue-relief.png': drawClue(style),
     'vessel.png': drawVessel(style),

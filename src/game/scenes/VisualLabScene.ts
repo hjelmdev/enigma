@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
 import {
-  initialSunSeal,
-  isSunSealSolved,
-  rotateRing,
+  createSunSealState,
+  rotateSunSeal,
+  SUN_SEAL_HINTS,
   SEALED_SUN_ROOM,
   VISUAL_STYLES,
   type DoorState,
-  type RingAngles,
+  type SunSealState,
   type RoomArtPack,
   type VisualStyleId,
 } from '../visual-lab/model';
@@ -28,7 +28,7 @@ export class VisualLabScene extends Phaser.Scene {
   private roomObjects: Phaser.GameObjects.GameObject[] = [];
   private roomMode = false;
   private styleId: VisualStyleId = 'classic';
-  private angles: RingAngles = initialSunSeal();
+  private puzzle: SunSealState = createSunSealState();
   private doorState: DoorState = 'closed';
   private pointerStart?: {
     x: number;
@@ -38,20 +38,59 @@ export class VisualLabScene extends Phaser.Scene {
   };
   private isOpening = false;
   private doorLayers?: DoorLayers;
+  private puzzleView?: Phaser.GameObjects.Container;
+  private hintLevel = 0;
+  private panVelocity = 0;
+  private lastPointerSample?: { x: number; time: number };
+  private suppressTapUntil = 0;
+  private openingTweens: Phaser.Tweens.Tween[] = [];
+  private puzzleDiscs: Phaser.GameObjects.Image[] = [];
+  private puzzleBoard?: Phaser.GameObjects.Rectangle;
+  private puzzleBoardArt?: Phaser.GameObjects.Image;
+  private baseRoomZoom = 1;
 
   constructor() {
     super('visual-lab');
   }
 
+  update(_time: number, delta: number) {
+    if (
+      this.pointerStart?.moved ||
+      this.puzzleView ||
+      this.doorState !== 'closed'
+    )
+      return;
+    if (Math.abs(this.panVelocity) < 0.012) {
+      this.panVelocity = 0;
+      return;
+    }
+    const camera = this.cameras.main;
+    const next = Phaser.Math.Clamp(
+      camera.scrollX + this.panVelocity * delta,
+      0,
+      Math.max(0, ROOM.width - camera.width / camera.zoom),
+    );
+    if (next === camera.scrollX) this.panVelocity = 0;
+    else camera.scrollX = next;
+    this.panVelocity *= Math.pow(0.92, delta / 16.67);
+  }
+
   init(data: { mode?: 'styles' | 'room'; style?: VisualStyleId }) {
     this.roomMode = data.mode === 'room';
     this.styleId = data.style ?? 'classic';
-    this.angles = initialSunSeal();
+    this.puzzle = createSunSealState();
     this.doorState = 'closed';
     this.isOpening = false;
     this.pointerStart = undefined;
     this.roomObjects = [];
     this.doorLayers = undefined;
+    this.puzzleView = undefined;
+    this.hintLevel = 0;
+    this.panVelocity = 0;
+    this.openingTweens = [];
+    this.puzzleDiscs = [];
+    this.puzzleBoard = undefined;
+    this.puzzleBoardArt = undefined;
   }
 
   preload() {
@@ -213,8 +252,8 @@ export class VisualLabScene extends Phaser.Scene {
       .setAlpha(0);
     this.roomObjects.push(corridor, doorGlow);
 
-    const left = addImage('leftLeaf', ROOM.door.x - 45, ROOM.door.y);
-    const right = addImage('rightLeaf', ROOM.door.x + 45, ROOM.door.y);
+    const left = addImage('leftLeaf', ROOM.door.x - 44, ROOM.door.y);
+    const right = addImage('rightLeaf', ROOM.door.x + 44, ROOM.door.y);
     left.setDepth(2);
     right.setDepth(2);
     // The frame overlays the door edges and acts as a physical mask while the leaves slide away.
@@ -225,25 +264,22 @@ export class VisualLabScene extends Phaser.Scene {
     mechanism.setOrigin(0.5, 0.78);
     const clue = addImage('clue', ROOM.clue.x, ROOM.clue.y).setDepth(4);
     const vessel = addImage('vessel', ROOM.vessel.x, ROOM.vessel.y).setDepth(4);
-    clue.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, clue.width, clue.height),
-      Phaser.Geom.Rectangle.Contains,
-    );
+    clue.setInteractive({ useHandCursor: true });
     vessel.setInteractive({ useHandCursor: true });
+    clue.on('pointerover', () => clue.setTint(0xffe2a0));
+    clue.on('pointerout', () => clue.clearTint());
     clue.on('pointerup', () => {
-      if (!this.pointerStart?.moved)
-        this.setStatus(
-          'Reliefen visar riktningarna för de tre solringarna. Läs den från vänster till höger.',
-        );
+      if (!this.pointerStart?.moved && this.time.now > this.suppressTapUntil)
+        this.setStatus(SUN_SEAL_HINTS[0]);
     });
     vessel.on('pointerup', () => {
-      if (!this.pointerStart?.moved)
+      if (!this.pointerStart?.moved && this.time.now > this.suppressTapUntil)
         this.setStatus(
           'En gravyr på kärlet visar en stigande, kulminerande och sjunkande sol.',
         );
     });
 
-    this.addHotspot(ROOM.door.x, ROOM.door.y, 170, 264, () => {
+    this.addHotspot(ROOM.door.x, ROOM.door.y, 120, 264, () => {
       this.setStatus(
         this.doorState === 'open'
           ? 'Stenporten står öppen mot den mörka gången.'
@@ -251,30 +287,14 @@ export class VisualLabScene extends Phaser.Scene {
       );
     });
 
-    ROOM.rings.forEach((position, index) => {
-      const ring = this.add
-        .image(position.x, position.y, this.textureKey('ring'))
-        .setScale(artScale)
-        .setDepth(5)
-        .setInteractive(
-          new Phaser.Geom.Circle(
-            7 * (this.styleId === 'hd' ? 2 : 1),
-            7 * (this.styleId === 'hd' ? 2 : 1),
-            8 * (this.styleId === 'hd' ? 2 : 1),
-          ),
-          Phaser.Geom.Circle.Contains,
-        );
-      ring.setOrigin(0.5).setData('baseRotation', 0);
-      this.roomObjects.push(ring);
-      ring.on('pointerover', () => ring.setTint(0xffe5a2));
-      ring.on('pointerout', () => ring.clearTint());
-      ring.on('pointerup', () => {
-        if (!this.pointerStart?.moved) this.turnRing(index, ring, artScale);
-      });
-    });
+    const mechanismHotspot = this.addHotspot(345, 350, 112, 104, () =>
+      this.openPuzzleView(),
+    );
+    mechanismHotspot.on('pointerover', () => mechanism.setTint(0xffe1a0));
+    mechanismHotspot.on('pointerout', () => mechanism.clearTint());
 
     const dust = this.add
-      .particles(ROOM.door.x, 330, this.createDustTexture(), {
+      .particles(ROOM.door.x, 220, this.createDustTexture(), {
         speed: { min: 10, max: 52 },
         angle: { min: 220, max: 320 },
         scale: { start: 0.8, end: 0 },
@@ -295,9 +315,10 @@ export class VisualLabScene extends Phaser.Scene {
       dust,
     };
 
-    this.input.keyboard?.on('keydown-ESC', () =>
-      this.scene.start('visual-lab', { mode: 'styles' }),
-    );
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.puzzleView) this.closePuzzleView();
+      else this.scene.start('visual-lab', { mode: 'styles' });
+    });
   }
 
   private addHotspot(
@@ -306,14 +327,16 @@ export class VisualLabScene extends Phaser.Scene {
     width: number,
     height: number,
     onTap: () => void,
-  ) {
+  ): Phaser.GameObjects.Zone {
     const zone = this.add
       .zone(x, y, width, height)
       .setInteractive({ useHandCursor: true });
     this.roomObjects.push(zone);
     zone.on('pointerup', () => {
-      if (!this.pointerStart?.moved) onTap();
+      if (!this.pointerStart?.moved && this.time.now > this.suppressTapUntil)
+        onTap();
     });
+    return zone;
   }
 
   private createUi(styleTitle: string) {
@@ -341,7 +364,7 @@ export class VisualLabScene extends Phaser.Scene {
       this.add
         .text(w / 2, 28, styleTitle.toUpperCase(), {
           fontFamily: 'Cinzel, Georgia, serif',
-          fontSize: '16px',
+          fontSize: `${Math.min(16, w * 0.035)}px`,
           color: '#e8d0a5',
           letterSpacing: 1,
         })
@@ -351,7 +374,7 @@ export class VisualLabScene extends Phaser.Scene {
       this.add
         .text(w - 20, 28, 'HUVUDMENY', {
           fontFamily: 'DM Sans, sans-serif',
-          fontSize: '14px',
+          fontSize: `${Math.min(14, w * 0.032)}px`,
           color: '#c9ad7c',
         })
         .setOrigin(1, 0.5)
@@ -365,7 +388,7 @@ export class VisualLabScene extends Phaser.Scene {
       .text(
         18,
         footerY - 14,
-        'Utforska rummet. Tryck på de tre ringarna för att vrida solsigillet.',
+        'Undersök sigillet för att vrida ringarna. Reliefen intill visar solens färd.',
         {
           fontFamily: 'DM Sans, sans-serif',
           fontSize: '13px',
@@ -378,6 +401,15 @@ export class VisualLabScene extends Phaser.Scene {
       .setOrigin(0, 0.5)
       .setName('status');
     this.ui.add(status);
+    status.setText(
+      'SVEP I RUMMET FÖR ATT UTFORSKA  ·  UNDERSÖK SIGILLET NÄRA VÄNSTERKANTEN',
+    );
+    this.time.delayedCall(4200, () => {
+      if (status.active)
+        status.setText(
+          'Undersök sigillet för att vrida ringarna. Reliefen intill visar solens färd.',
+        );
+    });
     const buttonW = Math.min(120, w * 0.3);
     this.addUiButton(
       'CENTRERA',
@@ -400,7 +432,7 @@ export class VisualLabScene extends Phaser.Scene {
         .text(
           18,
           h - 12,
-          'DRA FÖR ATT PANORERA  ·  TRYCK PÅ SIGILLET FÖR ATT VRIDA',
+          'DRA FÖR ATT UTFORSKA  ·  TRYCK PÅ SIGILLET FÖR ATT UNDERSÖKA',
           {
             fontFamily: 'DM Sans, sans-serif',
             fontSize: '9px',
@@ -440,28 +472,331 @@ export class VisualLabScene extends Phaser.Scene {
     this.ui.add([button, text]);
   }
 
+  private openPuzzleView() {
+    if (this.puzzleView || this.doorState !== 'closed') return;
+    const mechanismX = 345;
+    const mechanismY = 352;
+    const camera = this.cameras.main;
+    this.tweens.add({
+      targets: camera,
+      scrollX: Phaser.Math.Clamp(
+        mechanismX - this.scale.width / (camera.zoom * 2),
+        0,
+        ROOM.width - this.scale.width / camera.zoom,
+      ),
+      scrollY: Phaser.Math.Clamp(
+        mechanismY - this.scale.height / (camera.zoom * 2),
+        0,
+        ROOM.height - this.scale.height / camera.zoom,
+      ),
+      zoom: this.baseRoomZoom * 1.12,
+      duration: 360,
+      ease: 'Sine.easeInOut',
+      onComplete: () => this.showPuzzleView(),
+    });
+  }
+
+  private showPuzzleView() {
+    const { width: w, height: h } = this.scale;
+    this.panVelocity = 0;
+    this.puzzleView = this.add.container(0, 0).setScrollFactor(0).setDepth(200);
+    this.cameras.main.ignore(this.puzzleView);
+    const shade = this.add.rectangle(w / 2, h / 2, w, h, 0x090d13, 0.93);
+    this.puzzleView.add(shade);
+    this.puzzleBoard = this.add
+      .rectangle(
+        w / 2,
+        h / 2,
+        Math.min(w - 26, 760),
+        Math.min(h - 112, 520),
+        0x171f22,
+        1,
+      )
+      .setStrokeStyle(2, 0x9a8054, 0.95);
+    this.puzzleView.add(this.puzzleBoard);
+    this.puzzleBoardArt = this.add.image(
+      w / 2,
+      h / 2,
+      this.textureKey('puzzleBoard'),
+    );
+    this.puzzleView.add(this.puzzleBoardArt);
+    this.puzzleView.add(
+      this.add
+        .text(
+          w / 2,
+          h < 520 ? 42 : Math.max(74, h * 0.17),
+          'SOLENS TRE VÄNDNINGAR',
+          {
+            fontFamily: 'Cinzel, Georgia, serif',
+            fontSize: `${Math.min(22, w * 0.055)}px`,
+            color: '#eddbb7',
+            letterSpacing: 1.5,
+          },
+        )
+        .setOrigin(0.5),
+    );
+    this.puzzleView.add(
+      this.add
+        .text(
+          w / 2,
+          h < 520 ? 70 : Math.max(100, h * 0.23),
+          'Vrid skivorna och följ reliefens väg från gryning till skymning.',
+          {
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: `${Math.min(13, w * 0.034)}px`,
+            color: '#b7c2c5',
+            align: 'center',
+            wordWrap: { width: w - 52 },
+          },
+        )
+        .setOrigin(0.5),
+    );
+
+    const boardWidth = this.puzzleBoardWidth(w, h);
+    const diameter = Math.max(68, Math.min(174, (boardWidth * 86) / 320));
+    const centerY = h / 2;
+    this.layoutPuzzleBoardArt(w, h, centerY);
+    this.puzzleDiscs = [];
+    ROOM.rings.forEach((_, index) => {
+      const x = w / 2 + (([44, 160, 276][index] - 160) / 320) * boardWidth;
+      const mount = this.add
+        .ellipse(
+          x,
+          centerY + 8,
+          diameter * 0.52,
+          diameter * 0.52,
+          0x10171c,
+          0.94,
+        )
+        .setStrokeStyle(4, 0x655d4b, 1);
+      const disc = this.add
+        .image(x, centerY, this.textureKey('ring'))
+        .setDisplaySize(diameter, diameter)
+        .setInteractive(
+          new Phaser.Geom.Circle(diameter / 2, diameter / 2, diameter * 0.48),
+          Phaser.Geom.Circle.Contains,
+        );
+      disc.input!.cursor = 'pointer';
+      const label = this.add
+        .text(
+          x,
+          centerY + diameter * 0.72,
+          this.ringLabel(index, this.puzzle.angles[index]),
+          {
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: `${Math.min(h < 520 ? 10 : 12, w * 0.03)}px`,
+            color: '#d8c69e',
+            letterSpacing: 0.6,
+          },
+        )
+        .setOrigin(0.5);
+      disc.rotation = (this.puzzle.angles[index] * Math.PI) / 2;
+      disc.on('pointerover', () => disc.setTint(0xffe9bd));
+      disc.on('pointerout', () => disc.clearTint());
+      disc.on('pointerup', () => this.turnRing(index, disc, label));
+      this.puzzleView!.add([mount, disc, label]);
+      this.puzzleDiscs.push(disc);
+    });
+    const shortView = h < 520;
+    this.addPuzzleButton(
+      'LEDTRÅD',
+      shortView ? w * 0.3 : w / 2,
+      shortView ? h - 34 : h - 136,
+      shortView ? Math.min(132, w * 0.43) : Math.min(144, w * 0.38),
+      () => this.showNextHint(),
+    );
+    this.addPuzzleButton(
+      'TILLBAKA',
+      shortView ? w * 0.7 : w / 2,
+      shortView ? h - 34 : h - 80,
+      shortView ? Math.min(132, w * 0.43) : Math.min(190, w * 0.5),
+      () => this.closePuzzleView(),
+    );
+    const hint = this.add
+      .text(w / 2, shortView ? h - 82 : h - 178, '', {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: `${Math.min(12, w * 0.031)}px`,
+        color: '#eedbb5',
+        align: 'center',
+        wordWrap: { width: w - 64 },
+      })
+      .setOrigin(0.5);
+    hint.setName('puzzle-hint');
+    this.puzzleView.add(hint);
+    this.layoutPuzzleView();
+  }
+
+  private addPuzzleButton(
+    label: string,
+    x: number,
+    y: number,
+    width: number,
+    action: () => void,
+  ) {
+    const button = this.add
+      .rectangle(x, y, width, 42, 0x3d4648)
+      .setStrokeStyle(1, 0xb69a64, 0.85)
+      .setInteractive({ useHandCursor: true });
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: '12px',
+        color: '#f1e2c1',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    button.on('pointerover', () => button.setFillStyle(0x59635f));
+    button.on('pointerout', () => button.setFillStyle(0x3d4648));
+    button.on('pointerup', action);
+    text.on('pointerup', action);
+    this.puzzleView?.add([button, text]);
+  }
+
+  private showNextHint() {
+    this.hintLevel = Math.min(3, this.hintLevel + 1);
+    const text = this.puzzleView?.getByName('puzzle-hint') as
+      Phaser.GameObjects.Text | undefined;
+    text?.setText(
+      `LEDTRÅD ${this.hintLevel}/3  ${SUN_SEAL_HINTS[this.hintLevel - 1]}`,
+    );
+    this.layoutPuzzleView();
+  }
+
+  private closePuzzleView() {
+    if (!this.puzzleView) return;
+    const view = this.puzzleView;
+    this.puzzleView = undefined;
+    this.puzzleDiscs = [];
+    view.destroy(true);
+    if (this.puzzle.solved) this.beginDoorOpening();
+    else {
+      this.cameras.main.pan(ROOM.door.x, ROOM.door.y, 320, 'Sine.easeInOut');
+      this.tweens.add({
+        targets: this.cameras.main,
+        zoom: this.baseRoomZoom,
+        duration: 320,
+        ease: 'Sine.easeInOut',
+      });
+      this.setStatus(
+        'Sigillet väntar. Undersök reliefen och vrid skivorna i solens ordning.',
+      );
+    }
+  }
+
   private turnRing(
     index: number,
     ring: Phaser.GameObjects.Image,
-    artScale: number,
+    label: Phaser.GameObjects.Text,
   ) {
-    if (this.doorState !== 'closed' || this.isOpening) return;
-    this.angles = rotateRing(this.angles, index);
-    ring.rotation = this.angles[index] * (Math.PI / 2);
+    if (this.puzzle.solved || this.doorState !== 'closed' || this.isOpening)
+      return;
+    const previous = this.puzzle.angles[index];
+    this.puzzle = rotateSunSeal(this.puzzle, index);
     this.tweens.add({
       targets: ring,
-      scale: artScale * 1.06,
-      duration: 90,
-      yoyo: true,
-      ease: 'Sine.easeOut',
+      rotation: (this.puzzle.angles[index] * Math.PI) / 2,
+      scale: 1.045,
+      duration: 260,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.setScale(1),
     });
-    this.setStatus(
-      `Solseglet rör sig. Ringar: ${this.angles.map((angle) => ['N', 'Ö', 'S', 'V'][angle]).join(' · ')}`,
-    );
-    if (isSunSealSolved(this.angles)) {
-      this.setStatus('Mekanismen hakar i. Stenarna börjar röra sig…');
-      this.beginDoorOpening();
+    this.tweens.add({ targets: label, alpha: 0.45, duration: 80, yoyo: true });
+    label.setText(this.ringLabel(index, this.puzzle.angles[index]));
+    this.events.emit('visual-lab:seal-turn', {
+      index,
+      from: previous,
+      to: this.puzzle.angles[index],
+      style: this.styleId,
+    });
+    if (this.puzzle.solved) {
+      this.events.emit('visual-lab:seal-activate', { style: this.styleId });
+      this.closePuzzleView();
     }
+  }
+
+  private layoutPuzzleView() {
+    if (!this.puzzleView) return;
+    const { width: w, height: h } = this.scale;
+    const children = this.puzzleView.list;
+    (children[0] as Phaser.GameObjects.Rectangle)
+      .setPosition(w / 2, h / 2)
+      .setSize(w, h);
+    this.puzzleBoard
+      ?.setPosition(w / 2, h / 2)
+      .setSize(Math.min(w - 26, 760), Math.min(h - 112, 520));
+    (children[3] as Phaser.GameObjects.Text).setPosition(
+      w / 2,
+      h < 520 ? 42 : Math.max(74, h * 0.17),
+    );
+    (children[4] as Phaser.GameObjects.Text)
+      .setPosition(w / 2, h < 520 ? 70 : Math.max(100, h * 0.23))
+      .setWordWrapWidth(w - 52);
+    const boardWidth = this.puzzleBoardWidth(w, h);
+    const diameter = Math.max(68, Math.min(174, (boardWidth * 86) / 320));
+    const centerY = h / 2;
+    this.layoutPuzzleBoardArt(w, h, centerY);
+    const discs = this.puzzleDiscs;
+    for (let i = 0; i < discs.length; i++) {
+      const x = w / 2 + (([44, 160, 276][i] - 160) / 320) * boardWidth;
+      const mount = children[5 + i * 3] as Phaser.GameObjects.Ellipse;
+      const label = children[7 + i * 3] as Phaser.GameObjects.Text;
+      mount
+        .setPosition(x, centerY + 8)
+        .setSize(diameter * 1.04, diameter * 1.04);
+      discs[i].setPosition(x, centerY).setDisplaySize(diameter, diameter);
+      label
+        .setPosition(x, centerY + diameter * 0.72)
+        .setText(this.ringLabel(i, this.puzzle.angles[i]));
+    }
+    const shortView = h < 520;
+    for (const index of [14, 15]) {
+      const item = children[index] as Phaser.GameObjects.GameObject & {
+        setPosition?: (x: number, y: number) => unknown;
+      };
+      item.setPosition?.(
+        shortView ? w * 0.3 : w / 2,
+        shortView ? h - 34 : h - 136,
+      );
+    }
+    for (const index of [16, 17]) {
+      const item = children[index] as Phaser.GameObjects.GameObject & {
+        setPosition?: (x: number, y: number) => unknown;
+      };
+      item.setPosition?.(
+        shortView ? w * 0.7 : w / 2,
+        shortView ? h - 34 : h - 80,
+      );
+    }
+    const hint = this.puzzleView.getByName(
+      'puzzle-hint',
+    ) as Phaser.GameObjects.Text;
+    hint
+      .setPosition(w / 2, shortView ? h - 82 : h - 178)
+      .setWordWrapWidth(w - 64);
+  }
+
+  private layoutPuzzleBoardArt(width: number, height: number, discY: number) {
+    if (!this.puzzleBoardArt) return;
+    const source = this.puzzleBoardArt.texture.getSourceImage() as {
+      width: number;
+      height: number;
+    };
+    const boardWidth = this.puzzleBoardWidth(width, height);
+    this.puzzleBoardArt
+      .setScale(boardWidth / source.width)
+      .setPosition(width / 2, discY);
+  }
+
+  private puzzleBoardWidth(width: number, height: number) {
+    return Math.min(width - 58, 690, Math.max(220, (height - 160) * (4 / 3)));
+  }
+
+  private ringLabel(index: number, angle: number) {
+    const direction = ['N', 'Ö', 'S', 'V'][angle];
+    return this.scale.height < 520
+      ? `${index + 1} · ${direction}`
+      : `SKIVA ${index + 1}  ·  ${direction}`;
   }
 
   private beginDoorOpening() {
@@ -471,23 +806,37 @@ export class VisualLabScene extends Phaser.Scene {
     const layers = this.doorLayers;
     if (!layers) return;
     const camera = this.cameras.main;
-    camera.pan(ROOM.door.x, ROOM.door.y, 520, 'Sine.easeInOut');
-    camera.shake(320, 0.0018);
+    camera.pan(ROOM.door.x, ROOM.door.y, 850, 'Sine.easeInOut');
+    camera.shake(540, 0.0012);
+    this.events.emit('visual-lab:stone-grind', { style: this.styleId });
     this.tweens.add({
       targets: camera,
-      zoom: camera.zoom * 1.035,
-      duration: 520,
-      yoyo: true,
+      zoom: this.baseRoomZoom * 1.035,
+      duration: 720,
       ease: 'Sine.easeInOut',
     });
     this.tweens.add({
       targets: layers.doorGlow,
-      alpha: 0.46,
-      scale: 1.6,
-      duration: 500,
+      alpha: 0.62,
+      scale: 2.0,
+      duration: 1150,
       yoyo: true,
       ease: 'Sine.easeInOut',
     });
+    const skip = this.add
+      .text(this.scale.width - 22, 76, 'SKIPPA  ›', {
+        fontFamily: 'DM Sans, sans-serif',
+        fontSize: '12px',
+        color: '#ead4ac',
+        backgroundColor: '#17130f',
+        padding: { x: 12, y: 8 },
+      })
+      .setOrigin(1, 0.5)
+      .setScrollFactor(0)
+      .setDepth(130)
+      .setInteractive({ useHandCursor: true });
+    this.ui.add(skip);
+    skip.on('pointerup', () => this.finishDoorOpening());
     layers.dust.start();
     this.tweens.add({
       targets: layers.corridor,
@@ -496,24 +845,57 @@ export class VisualLabScene extends Phaser.Scene {
       delay: 450,
       ease: 'Sine.easeIn',
     });
-    this.tweens.add({
-      targets: [layers.left, layers.right],
-      x: (target: Phaser.GameObjects.Image) =>
-        target === layers.left
-          ? ROOM.door.x - ROOM.door.leafOffset
-          : ROOM.door.x + ROOM.door.leafOffset,
-      duration: 2350,
-      delay: 500,
-      ease: 'Cubic.easeInOut',
-      onComplete: () => {
-        this.doorState = 'open';
-        this.isOpening = false;
-        layers.dust.stop();
-        this.setStatus(
-          'SOLSIGILLET ÖPPNAT. Den dolda gången ligger kvar öppen.',
-        );
-      },
+    this.time.delayedCall(480, () => {
+      if (!this.isOpening) return;
+      const first = this.tweens.add({
+        targets: [layers.left, layers.right],
+        x: (target: Phaser.GameObjects.Image) =>
+          target === layers.left ? ROOM.door.x - 174 : ROOM.door.x + 174,
+        duration: 1750,
+        ease: 'Cubic.easeIn',
+        onComplete: () => {
+          if (!this.isOpening) return;
+          const final = this.tweens.add({
+            targets: [layers.left, layers.right],
+            x: (target: Phaser.GameObjects.Image) =>
+              target === layers.left
+                ? ROOM.door.x - ROOM.door.leafOffset
+                : ROOM.door.x + ROOM.door.leafOffset,
+            duration: 900,
+            ease: 'Quintic.easeOut',
+            onComplete: () => this.finishDoorOpening(),
+          });
+          this.openingTweens.push(final);
+        },
+      });
+      this.openingTweens.push(first);
     });
+  }
+
+  private finishDoorOpening() {
+    if (!this.isOpening) return;
+    this.openingTweens.forEach((tween) => tween.stop());
+    this.openingTweens = [];
+    const layers = this.doorLayers;
+    if (!layers) return;
+    layers.left.x = ROOM.door.x - ROOM.door.leafOffset;
+    layers.right.x = ROOM.door.x + ROOM.door.leafOffset;
+    layers.corridor.setAlpha(1);
+    layers.dust.stop();
+    this.tweens.add({
+      targets: this.cameras.main,
+      zoom: this.baseRoomZoom,
+      duration: 460,
+      ease: 'Sine.easeOut',
+    });
+    const skip = this.ui?.list.find(
+      (item) =>
+        item instanceof Phaser.GameObjects.Text && item.text === 'SKIPPA  ›',
+    );
+    skip?.destroy();
+    this.doorState = 'open';
+    this.isOpening = false;
+    this.setStatus('SOLSIGILLET ÖPPNAT. Den dolda gången ligger kvar öppen.');
   }
 
   private resetRoom() {
@@ -530,6 +912,8 @@ export class VisualLabScene extends Phaser.Scene {
     const camera = this.cameras.main;
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.y < 58 || pointer.y > this.scale.height - 82) return;
+      this.panVelocity = 0;
+      this.lastPointerSample = { x: pointer.x, time: this.time.now };
       this.pointerStart = {
         x: pointer.x,
         y: pointer.y,
@@ -544,13 +928,33 @@ export class VisualLabScene extends Phaser.Scene {
       const deltaY = pointer.y - start.y;
       if (!start.moved && Math.hypot(deltaX, deltaY) >= PAN_THRESHOLD)
         start.moved = true;
-      if (start.moved) camera.scrollX = start.scrollX - deltaX / camera.zoom;
+      if (start.moved) {
+        camera.scrollX = Phaser.Math.Clamp(
+          start.scrollX - deltaX / camera.zoom,
+          0,
+          Math.max(0, ROOM.width - camera.width / camera.zoom),
+        );
+        const sample = this.lastPointerSample;
+        if (sample) {
+          const elapsed = Math.max(1, this.time.now - sample.time);
+          this.panVelocity = Phaser.Math.Clamp(
+            -(pointer.x - sample.x) / camera.zoom / elapsed,
+            -1.8,
+            1.8,
+          );
+        }
+        this.lastPointerSample = { x: pointer.x, time: this.time.now };
+      }
     });
     this.input.on('pointerup', () => {
+      if (this.pointerStart?.moved) this.suppressTapUntil = this.time.now + 140;
       this.pointerStart = undefined;
+      this.lastPointerSample = undefined;
     });
     this.input.on('pointerupoutside', () => {
+      if (this.pointerStart?.moved) this.suppressTapUntil = this.time.now + 140;
       this.pointerStart = undefined;
+      this.lastPointerSample = undefined;
     });
   }
 
@@ -561,15 +965,12 @@ export class VisualLabScene extends Phaser.Scene {
       this.scale.height / ROOM.height,
     );
     camera.setZoom(zoom);
+    this.baseRoomZoom = zoom;
     camera.setBounds(0, 0, ROOM.width, ROOM.height);
     const visibleWidth = this.scale.width / zoom;
     const visibleHeight = this.scale.height / zoom;
     camera.setScroll(
-      Phaser.Math.Clamp(
-        ROOM.door.x - visibleWidth / 2,
-        0,
-        ROOM.width - visibleWidth,
-      ),
+      Phaser.Math.Clamp(360 - visibleWidth / 2, 0, ROOM.width - visibleWidth),
       Phaser.Math.Clamp(
         ROOM.height / 2 - visibleHeight / 2,
         0,
@@ -586,6 +987,7 @@ export class VisualLabScene extends Phaser.Scene {
       0,
       ROOM.width - visibleWidth,
     );
+    this.panVelocity = 0;
   }
 
   private createDustTexture() {
@@ -647,6 +1049,7 @@ export class VisualLabScene extends Phaser.Scene {
     }
     this.layoutCamera();
     this.layoutUi();
+    this.layoutPuzzleView();
   }
 }
 
