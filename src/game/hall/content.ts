@@ -102,6 +102,7 @@ export const HALL_TEXT = {
     rerolled: 'Nya tecken, nya vikter och ett nytt kärl. Läs tavlorna igen.',
     solved: 'Vågen svänger, darrar … och står stilla i perfekt jämvikt.',
     back: 'Tillbaka till salen',
+    plural: { scarab: 'skarabéer', falcon: 'falkar', lotus: 'lotusblommor' },
     kinds: {
       scarab: 'skarabé',
       falcon: 'falk',

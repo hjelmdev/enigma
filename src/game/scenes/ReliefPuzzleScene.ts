@@ -86,7 +86,7 @@ export class ReliefPuzzleScene extends Phaser.Scene {
       img.setInteractive({ useHandCursor: true });
       img.on('pointerup', (p: Phaser.Input.Pointer) => this.onTile(i, p));
       img.on('pointerdown', (p: Phaser.Input.Pointer) => {
-        img.setData('down', { x: p.x, y: p.y });
+        img.setData('down', { x: p.x, y: p.y, id: p.id });
       });
       this.tiles.push(img);
     }
@@ -317,8 +317,12 @@ export class ReliefPuzzleScene extends Phaser.Scene {
     // A swipe that clearly points away from the empty slot is ignored, so a
     // slip of the finger doesn't spend a move.
     const down = this.tiles[tile].getData('down') as
-      { x: number; y: number } | undefined;
-    if (down && Math.hypot(p.x - down.x, p.y - down.y) > 18) {
+      { x: number; y: number; id: number } | undefined;
+    this.tiles[tile].setData('down', undefined);
+    // The press must have started on this stone with this pointer: a release
+    // arriving from an HTML button above the board must not slide anything.
+    if (!down || down.id !== p.id) return;
+    if (Math.hypot(p.x - down.x, p.y - down.y) > 18) {
       const e = emptyIndex(this.state.cells);
       const toward = {
         x: (e % this.config.cols) - (cell % this.config.cols),

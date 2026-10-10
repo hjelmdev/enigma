@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { crispenHall, preloadHall } from '../hall/assets';
 import { HALL_TEXT } from '../hall/content';
+import { TapGuard } from '../hall/tapGuard';
 import { balanceState, saveBalance } from '../hall/hallState';
 import { HALL_BALANCE } from '../hall/puzzles';
 import { preloadPrologue, setPixelMode } from '../prologue/assets';
@@ -93,6 +94,12 @@ export class BalancePuzzleScene extends Phaser.Scene {
   private tokens: Phaser.GameObjects.Image[] = [];
   private flames: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
   private leverDrag?: { startY: number; angle: number };
+  /** Taps on weights must start and end on the same weight (see TapGuard). */
+  private taps = new TapGuard();
+  /** Real buttons over the tablets: tap, click or keyboard reads one relation. */
+  private tabletHits: HTMLButtonElement[] = [];
+  private tabletText: string[] = [];
+  private view = { cx: 0, cy: 0 };
 
   constructor() {
     super('balance-puzzle');
@@ -128,6 +135,9 @@ export class BalancePuzzleScene extends Phaser.Scene {
     this.busy = false;
     this.beamAngle = 0;
     this.tablets = [];
+    this.tabletHits = [];
+    this.tabletText = [];
+    this.taps.clear();
     this.tokens = [];
     this.pans = [];
     this.flames = [];
@@ -205,6 +215,7 @@ export class BalancePuzzleScene extends Phaser.Scene {
     cam.setZoom(this.zoom);
     const offset = (uiTop - uiBottom) / 2 / this.zoom;
     cam.centerOn(a.w / 2, a.h / 2 - offset);
+    this.view = { cx: a.w / 2, cy: a.h / 2 - offset };
     // Wall: the art at 1:1 centred on the station, a darker cover behind it.
     const bx = Math.round(a.w / 2 - ART.w / 2);
     const by = portrait ? -14 : Math.round(a.h / 2 - ART.h / 2);
@@ -228,6 +239,21 @@ export class BalancePuzzleScene extends Phaser.Scene {
     );
     this.applyBeam();
     if (this.puzzle) this.placeTokens(false);
+    this.placeTabletHits();
+  }
+
+  /** Keeps the tablet buttons over the carved tablets on any screen. */
+  private placeTabletHits() {
+    const { width: w, height: h } = this.scale;
+    this.tabletHits.forEach((b, i) => {
+      const t = this.arr.tablets[i];
+      Object.assign(b.style, {
+        left: `${Math.round((t.x - this.view.cx) * this.zoom + w / 2)}px`,
+        top: `${Math.round((t.y - this.view.cy) * this.zoom + h / 2)}px`,
+        width: `${Math.round(150 * this.zoom)}px`,
+        height: `${Math.round(44 * this.zoom)}px`,
+      });
+    });
   }
 
   private placeFlames(bx: number, by: number) {
@@ -296,15 +322,12 @@ export class BalancePuzzleScene extends Phaser.Scene {
       };
       place(clue.left, 38);
       place(clue.right, 112);
-      // Tap a tablet to read it aloud as text.
-      const hit = this.add
-        .zone(0, 0, 150, 44)
-        .setOrigin(0)
-        .setInteractive({ useHandCursor: true });
-      hit.on('pointerup', () =>
-        this.overlay.caption(this.describe(clue), { position: 'bottom' }),
-      );
-      t.add(hit);
+      this.tabletText[i] = this.describe(clue);
+      const hit = this.tabletHits[i];
+      if (hit) {
+        hit.setAttribute('aria-label', `Tavla ${i + 1}: ${this.tabletText[i]}`);
+        hit.title = this.tabletText[i];
+      }
     });
   }
 
@@ -314,7 +337,12 @@ export class BalancePuzzleScene extends Phaser.Scene {
       const parts: string[] = [];
       if (s.target) parts.push('det förseglade kärlet');
       for (const kind of WEIGHT_KINDS)
-        if (s.pieces[kind]) parts.push(`${s.pieces[kind]} ${k[kind]}`);
+        if (s.pieces[kind])
+          parts.push(
+            s.pieces[kind] === 1
+              ? `en ${k[kind]}`
+              : `${s.pieces[kind]} ${HALL_TEXT.balance.plural[kind]}`,
+          );
       return parts.join(' och ');
     };
     return HALL_TEXT.balance.relation(words(clue.left), words(clue.right));
@@ -329,7 +357,15 @@ export class BalancePuzzleScene extends Phaser.Scene {
         img.setData('kind', kind);
         img.setData('index', i);
         img.setInteractive({ useHandCursor: true });
-        img.on('pointerup', () => this.toggleToken(img));
+        const id = `${kind}-${i}`;
+        img.on('pointerdown', (p: Phaser.Input.Pointer) =>
+          this.taps.down(id, p.id),
+        );
+        img.on('pointerup', (p: Phaser.Input.Pointer) => {
+          // Ignore releases that started elsewhere, e.g. on a caption button.
+          if (this.taps.up(id, p.id)) this.toggleToken(img);
+        });
+        img.on('pointerout', () => this.taps.up(id, -1));
         this.tokens.push(img);
       }
     this.placeTokens(false);
@@ -425,6 +461,18 @@ export class BalancePuzzleScene extends Phaser.Scene {
       'pro-btn hall-back-btn',
     );
     this.status = o.element('div', 'hall-status');
+    for (let i = 0; i < 3; i++) {
+      const b = o.element('button', 'hall-hit hall-tablet-hit');
+      b.type = 'button';
+      b.addEventListener('pointerdown', (e) => e.stopPropagation());
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.busy || !this.tabletText[i]) return;
+        // One relation per press; never chains into the next tablet.
+        this.overlay.caption(this.tabletText[i], { position: 'bottom' });
+      });
+      this.tabletHits.push(b);
+    }
     const bar = o.element('div', 'hall-closeup-bar');
     this.holdBtn = o.button(
       HALL_TEXT.balance.leverButton,
